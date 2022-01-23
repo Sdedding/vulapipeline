@@ -12,6 +12,10 @@
  unreasonable data. Care should be taken that the data should only be used
  after it has been verified.
 """
+from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
+from sibc.csidh import CSIDH
+
+from vula.common import b64_bytes
 
 try:
     import cv2
@@ -36,7 +40,7 @@ from .constants import (
     _ORGANIZE_DBUS_NAME,
     _ORGANIZE_DBUS_PATH,
 )
-from .notclick import DualUse, green, bold
+from .notclick import DualUse, green, bold, blue
 from .peer import Descriptor
 from .engine import Result
 
@@ -82,7 +86,34 @@ class VerifyCommands(object):
     @DualUse.method()
     @click.argument('name', type=str)
     def against(self, name):
-        # take name vk and vk (self), hash with sha256
+        """
+        Traceback (most recent call last):
+          File "/usr/lib/python3/dist-packages/vula/verify.py",
+          line 114, in against
+            ss = self.organize.dh(str(pk))
+          File "/usr/lib/python3/dist-packages/pydbus/proxy_method.py",
+          line 72, in __call__
+            ret = instance._bus.con.call_sync(
+        gi.repository.GLib.Error:
+        g-io-error-quark: GDBus.Error:unknown.
+        AssertionError: non-supersingular input curve (36)
+        """
+        click.echo(green(bold("Verify against for {}").format(name)))
+        pk = b64_bytes(self.organize.peer_pk(name))
+        click.echo(blue(bold("pk = {}").format(str(pk))))
+        sk = self.organize.generate_or_read_sk()
+        click.echo(blue(bold("sk = {}").format(str(sk))))
+        # ss = CSIDH.derive(sk=sk, pk=pk)
+        ss = self.organize.dh(str(pk))
+
+        self_name = self.my_descriptor.hostname
+        message = self.vk
+        cipher = ChaCha20Poly1305.encrypt(nonce=bytes(ss), data=bytes(message))
+        qr = qrcode.QRCode()
+        data = "local.vula:aead:" + str(cipher) + ":" + str(self_name)
+        qr.add_data(data=data)
+        qr.print_ascii()
+        click.echo(green(bold("data: {}").format(data)))
         pass
 
     @DualUse.method()
@@ -153,6 +184,8 @@ class VerifyCommands(object):
             else:
                 click.echo("keys are for the wrong DeLorean")
                 raise Exit(1)
+        elif sub_type == "aead":
+            self.handle_aead(data)
         else:
             click.echo("unknown qrcode subtype")
             raise Exit(1)
@@ -163,6 +196,25 @@ class VerifyCommands(object):
             if debug:
                 click.echo(res)
             raise Exit(0)
+
+    def handle_aead(self, data):
+        cipher, hostname = data.split(":")
+        pk = self.organize.peer_pk(hostname)
+        click.echo(blue(bold("pk = {}").format(pk)))
+
+        sk = self.organize.generate_or_read_sk()
+        click.echo(blue(bold("sk = {}").format(str(sk))))
+
+        ss = CSIDH.dh(sk, pk)
+        message = ChaCha20Poly1305.decrypt(nonce=bytes(ss), data=bytes(cipher))
+        if message == self.organize.get_vk_by_name(hostname):
+            # self.organize.verify_and_pin_peer(message, hostname)
+            click.echo(
+                green(bold("VERIFIED {} with vk {}").format(hostname, message))
+            )
+        else:
+            click.echo("wrong")
+            raise Exit(1)
 
 
 main = VerifyCommands.cli
