@@ -1,3 +1,4 @@
+import time
 import unittest
 import schema
 
@@ -364,6 +365,23 @@ class TestOrganizeEngine(unittest.TestCase):
         _ = self._assert_res_actions(
             self.state.event_NEW_SYSTEM_STATE(
                 SystemState(self.state.system_state, current_subnets={})
+            ),
+            ['ADJUST_TO_NEW_SYSTEM_STATE', 'REMOVE_PEER'],
+        )
+
+    def test_expire_unpinned_peer(self):
+        self._proc_desc(
+            actions=['ACCEPT_NEW_PEER'],
+            hostname='alice.local',
+            vk=mkk('alicevk'),
+            pk=mkk('alicepk'),
+            addrs='10.0.0.1',
+            vf=time.time(),
+            dt=0,
+        )
+        _ = self._assert_res_actions(
+            self.state.event_NEW_SYSTEM_STATE(
+                SystemState(self.state.system_state)
             ),
             ['ADJUST_TO_NEW_SYSTEM_STATE', 'REMOVE_PEER'],
         )
