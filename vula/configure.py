@@ -9,6 +9,8 @@ import os
 from os import geteuid, mkdir, system
 from sys import platform
 import time
+from typing import Optional
+
 import click
 from click.exceptions import Exit
 from cryptography.hazmat.primitives import serialization
@@ -150,6 +152,51 @@ class Configure(attrdict):
             self.log.info("Generating keys...")
             keys = self.genkeys()
             keys.write_yaml_file(path, mode=0o600, autochown=True)
+        return keys
+
+    @DualUse.method()
+    def rotate_keys(self, csidh, vk, wg) -> Optional[KeyFile]:
+        self.log.info("Rotating keys")
+        current_keys = self.generate_or_read_keys()
+        new_keys = []
+        if not csidh and not vk and not wg:
+            self.log.info("No keys to rotate defined")
+            return None
+
+        if csidh:
+            self.log.info("Rotating CSIDH keypair...")
+            new_keys.extend(self._csidh_keypair_gen())
+        else:
+            new_keys.append(current_keys.get("pq_csidhP512_sec_key"))
+            new_keys.append(current_keys.get("pq_csidhP512_pub_key"))
+        if vk:
+            self.log.info("Rotating verification keypair...")
+            new_keys.extend(self._ed25519_keypair_gen())
+        else:
+            new_keys.append(current_keys.get("vk_Ed25519_sec_key"))
+            new_keys.append(current_keys.get("vk_Ed25519_pub_key"))
+        if wg:
+            self.log.info("Rotating wireguard keypair...")
+            new_keys.extend(self._curve25519_keypair_gen())
+        else:
+            new_keys.append(current_keys.get("wg_Curve25519_sec_key"))
+            new_keys.append(current_keys.get("wg_Curve25519_pub_key"))
+
+        keys = KeyFile(
+            zip(
+                (
+                    "pq_csidhP512_sec_key",
+                    "pq_csidhP512_pub_key",
+                    "vk_Ed25519_sec_key",
+                    "vk_Ed25519_pub_key",
+                    "wg_Curve25519_sec_key",
+                    "wg_Curve25519_pub_key",
+                ),
+                new_keys,
+            )
+        )
+        path = self.keys_conf_file
+        keys.write_yaml_file(path, mode=0o600, autochown=True)
         return keys
 
     @DualUse.method()

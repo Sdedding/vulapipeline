@@ -56,7 +56,7 @@ from .constants import (
 )
 from .configure import Configure
 
-from .notclick import DualUse
+from .notclick import DualUse, yellow
 from .csidh import hkdf, csidh_parameters, CSIDH
 from .peer import Descriptor, Peers, PeerCommands
 from .prefs import Prefs
@@ -172,6 +172,11 @@ class OrganizeState(Engine, yamlrepr_hl):
             self.action_REMOVE_PEER(peer)
         else:
             self.action_IGNORE("no such peer")
+
+    @Engine.event
+    def event_USER_REMOVE_ALL_PEERS(self):
+        for peer in self.peers.values():
+            self.action_REMOVE_PEER(peer)
 
     @Engine.event
     def event_USER_PEER_ADDR_ADD(self, vk, ip):
@@ -559,6 +564,14 @@ class Organize(attrdict):
           <arg type='s' name='response' direction='out'/>
         </method>
       </interface>
+      <interface name='local.vula.organize1.Keys'>
+        <method name='rotate_keys'>
+          <arg type='b' name='csidh' direction='in'/>
+          <arg type='b' name='vk' direction='in'/>
+          <arg type='b' name='wg' direction='in'/>
+          <arg type='s' name='response' direction='out'/>
+        </method>
+      </interface>
     </node>
     '''
 
@@ -580,18 +593,19 @@ class Organize(attrdict):
             self.run(monolithic=False)
 
     def csidh_dh(self, pk):
+        sk = self._keys.pq_csidhP512_sec_key
         if self._csidh_dh is None:
             self.log.debug("Initializing CSIDH")
             csidh = CSIDH(**csidh_parameters)
-            sk = self._keys.pq_csidhP512_sec_key
 
             @memoize
-            def _csidh_dh(pk):
+            def _csidh_dh(pk_sk):
+                (pk, sk) = pk_sk
                 self.log.debug("Generating CSIDH PSK for pk {}".format(pk))
                 return csidh.dh(sk, pk)
 
             self._csidh_dh = _csidh_dh
-        raw_key = self._csidh_dh(pk)
+        raw_key = self._csidh_dh((pk, sk))
         psk = hkdf(raw_key)
         return psk
 
@@ -967,6 +981,22 @@ class Organize(attrdict):
         return str(
             self.state.event_USER_EDIT('REMOVE', ['prefs', pref], value)
         )
+
+    def rotate_keys(self, csidh=False, vk=False, wg=False) -> str:
+        if vk and not csidh:
+            csidh = True
+        if csidh and not wg:
+            wg = True
+        click.echo(f"Rotating {[csidh, vk, wg].count(True)} keys")
+        new_keys = self._configure.rotate_keys(csidh, vk, wg)
+        if new_keys is None:
+            return 'No keys were rotated.'
+        self._keys = new_keys
+        click.echo("Keys successfully rotated. Dropping existing peers.")
+        self.state.event_USER_REMOVE_ALL_PEERS()
+        self.get_new_system_state()
+        self.sync()
+        return f"Key rotation successful. Run {yellow('vula rediscover')} to find peers."
 
     @DualUse.method()
     def eventlog(self):
