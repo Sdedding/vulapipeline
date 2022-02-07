@@ -490,6 +490,10 @@ class Organize(attrdict):
           <arg type='s' name='query' direction='in'/>
           <arg type='s' name='response' direction='out'/>
         </method>
+        <method name='peer_pk'>
+          <arg type='s' name='query' direction='in'/>
+          <arg type='ay' name='response' direction='out'/>
+        </method>
         <method name='peer_ids'>
           <arg type='s' name='which' direction='in'/>
           <arg type='as' name='response' direction='out'/>
@@ -559,6 +563,17 @@ class Organize(attrdict):
           <arg type='s' name='response' direction='out'/>
         </method>
       </interface>
+      <interface name='local.vula.organize1.Configure'>
+        <method name='generate_or_read_sk'>
+          <arg type='s' name='response' direction='out'/>
+        </method>
+      </interface>
+      <interface name='local.vula.organize1.CSIDH'>
+        <method name='dh'>
+          <arg type='s' name='response' direction='out'/>
+          <arg type='s' name='pk' direction='in'/>
+        </method>
+      </interface>
     </node>
     '''
 
@@ -594,6 +609,10 @@ class Organize(attrdict):
         raw_key = self._csidh_dh(pk)
         psk = hkdf(raw_key)
         return psk
+
+    def dh(self, pk):
+        bpk = bytes(pk, "utf-8")
+        return self.csidh_dh(bpk)
 
     @property
     def our_wg_pk(self):
@@ -866,6 +885,17 @@ class Organize(attrdict):
         """
         peer = self.peers.query(query)
         return str(peer.descriptor) if peer else ''
+
+    def peer_pk(self, query):
+        peer = self.peers.query(query)
+        return b64_bytes(peer.descriptor.pk)
+
+    def generate_or_read_sk(self):
+        return str(
+            self._configure.generate_or_read_keys().get(
+                "wg_Curve25519_sec_key"
+            )
+        )
 
     def process_descriptor_string(self: Organize, descriptor: str):
 

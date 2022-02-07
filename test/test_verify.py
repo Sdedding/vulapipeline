@@ -57,3 +57,6 @@ class TestVerifyCommands:
         assert 'Y' * 43 + '=' not in output
         assert 'X' * 86 + '=' not in output
         assert 'Z' * 86 + '=' not in output
+
+    def test_verify_against(self):
+        pass
