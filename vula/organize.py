@@ -58,7 +58,7 @@ from .configure import Configure
 
 from .notclick import DualUse
 from .csidh import hkdf, csidh_parameters, CSIDH
-from .peer import Descriptor, Peers, PeerCommands
+from .peer import Descriptor, Peers, PeerCommands, Peer
 from .prefs import Prefs
 from .discover import Discover
 from .publish import Publish
@@ -79,6 +79,7 @@ class SystemState(schemattrdict):
             current_subnets={Optional_(Use(ip_network)): [Use(ip_address)]},
             our_wg_pk=b64_bytes.with_len(32),
             gateways=[Use(ip_address)],
+            time=Optional_(int),
         )
     )
 
@@ -86,6 +87,7 @@ class SystemState(schemattrdict):
         our_wg_pk=b'\x00' * 32,
         current_subnets={},
         gateways=[],
+        time=int(time.time()),
     )
 
     @classmethod
@@ -95,6 +97,7 @@ class SystemState(schemattrdict):
             gateways=gateways,
             current_subnets=subnets,
             our_wg_pk=organize.our_wg_pk,
+            time=int(time.time()),
         )
 
     @property
@@ -213,6 +216,14 @@ class OrganizeState(Engine, yamlrepr_hl):
         self.action_EDIT(operation, path, value)
 
     @Engine.event
+    def event_EDIT_PREF(self, operation, path, value):
+        if path[1] == "expire_time":
+            value = int(value)
+        getattr(self, '_' + operation)(path, value)
+        self.result.add_triggers(get_new_system_state=())
+        self.result.add_triggers(remove_unknown=())
+
+    @Engine.event
     def event_RELEASE_GATEWAY(self):
         cur_gw = list(self.peers.limit(use_as_gateway=True).values())
         if cur_gw:
@@ -276,13 +287,52 @@ class OrganizeState(Engine, yamlrepr_hl):
         for peer in self.peers.limit(pinned=False).values():
             if not addrs_in_subnets(
                 peer.enabled_ips, new_system_state.current_subnets
+            ) or self.peer_expires(
+                peer,
+                self.get('time')
+                if self.get('time') is not None
+                else time.time(),
             ):
-                # remove unpinned peers that are no longer local
+                # remove unpinned peers that are no longer local or that expire
                 self.action_REMOVE_PEER(peer)
         self._SET('system_state', new_system_state)
 
         # TODO:
         # remove endpoints from pinned peers that became non-local
+
+    def peer_expires(self, peer: Peer, time: int):
+        """
+        >>> import time
+        >>> time_str = str(int(time.time()))
+        >>> o = OrganizeState()
+        >>> desc_string = ("addrs=192.168.6.9;c=QUFBQUFBQUFBQUFBQUFBQUFBQUFBQU"
+        ... f"FBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQQ==;"
+        ... f"dt=86400;e=0;hostname=george.local;pk=QkJCQkJCQ"
+        ... f"kJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=;port=123;vf="+time_str+
+        ... f";vk=Q0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0M=")
+        >>> descriptor = Descriptor.parse(desc_string)
+        >>> p = Peer(dict(descriptor=descriptor,petname="george",pinned=False,
+        ... enabled=True, verified=False,nicknames={descriptor.hostname: True},
+        ... IPv4addrs={ip: True for ip in descriptor.IPv4addrs},
+        ... IPv6addrs={ip: True for ip in descriptor.IPv6addrs}))
+        >>> now = time.time()
+        >>> o.peer_expires(p,int(now))
+        False
+        >>> desc_string = ("addrs=192.168.6.9;c=QUFBQUFBQUFBQUFBQUFBQUFBQUFBQU"
+        ... f"FBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQQ==;"
+        ... f"dt=0;e=0;hostname=george.local;pk=QkJCQkJCQ"
+        ... f"kJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI=;port=123;vf="+time_str+
+        ... f";vk=Q0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0M=")
+        >>> descriptor = Descriptor.parse(desc_string)
+        >>> p = Peer(dict(descriptor=descriptor,petname="george",pinned=False,
+        ... enabled=True, verified=False,nicknames={descriptor.hostname: True},
+        ... IPv4addrs={ip: True for ip in descriptor.IPv4addrs},
+        ... IPv6addrs={ip: True for ip in descriptor.IPv6addrs}))
+        >>> now = time.time()
+        >>> o.peer_expires(p,int(now))
+        True
+        """
+        return time >= peer.descriptor.vf + peer.descriptor.dt
 
     @Engine.event
     def event_INCOMING_DESCRIPTOR(self, descriptor):
@@ -958,7 +1008,7 @@ class Organize(attrdict):
         # as-yet unwritten event should call an action which should trigger
         # get_new_system_state to cause, eg, removal of allowed subnets
         # or interfaces to take effect immediately.
-        return str(self.state.event_USER_EDIT('SET', ['prefs', pref], value))
+        return str(self.state.event_EDIT_PREF('SET', ['prefs', pref], value))
 
     def add_pref(self, pref, value):
         return str(self.state.event_USER_EDIT('ADD', ['prefs', pref], value))
