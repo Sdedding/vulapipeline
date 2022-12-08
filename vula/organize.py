@@ -59,7 +59,7 @@ from .configure import Configure
 from .notclick import DualUse
 from .csidh import hkdf, csidh_parameters, CSIDH
 from .peer import Descriptor, Peers, PeerCommands
-from .prefs import Prefs
+from .prefs import Prefs, PrefsCommands
 from .discover import Discover
 from .publish import Publish
 from .sys import Sys
@@ -980,8 +980,8 @@ class Organize(attrdict):
             for result in map(Result, self.state.event_log)
         )
 
-
 Organize.cli.add_command(PeerCommands.cli, name='peer')
+Organize.cli.add_command(PrefsCommands.cli, name='prefs')
 
 main = Organize.cli
 

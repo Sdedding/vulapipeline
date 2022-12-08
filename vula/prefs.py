@@ -72,7 +72,10 @@ class PrefsCommands(object):
     """
 
     def __init__(self, ctx):
-        self.organize = organize_dbus_if_active()
+        self.organize = (
+            ctx.meta.get('Organize', {}).get('magic_instance')
+            or organize_dbus_if_active()
+        )
         if ctx.invoked_subcommand is None:
             click.echo(self.show().strip())
 
