@@ -4,8 +4,8 @@ RPM_NAME := ../dist/vula-$(VERSION)-1.noarch.rpm
 NET_NAME := vula-net
 SO_NAME := /usr/local/lib64/python3.9/site-packages/lib/libnss_vula.so.2
 dist := bullseye
-#dists := buster focal hirsute bullseye impish fedora34 alpine
-dists := bullseye impish fedora34
+#dists := focal jammy kinetic hbullseye fedora34 alpine
+dists := jammy kinetic bullseye fedora34
 podman_args := --volume $(shell readlink -f ..):/root/vula:z --workdir /root/vula --uts=private
 add_caps := --cap-add NET_ADMIN,NET_RAW
 test1 := vula-$(dist)-test1
@@ -25,26 +25,26 @@ help:
 
 build_args=
 
-ifeq ($(dist),buster)
-	build_args=--build-arg DISTRO=debian --build-arg VERSION=buster
-endif
-ifeq ($(dist),focal)
-	build_args=--build-arg DISTRO=ubuntu --build-arg VERSION=20.04
-endif
-ifeq ($(dist),hirsute)
-	build_args=--build-arg DISTRO=ubuntu --build-arg VERSION=21.04
-endif
-ifeq ($(dist),bullseye)
-	build_args=--build-arg DISTRO=debian --build-arg VERSION=bullseye
-endif
-ifeq ($(dist),impish)
-	build_args=--build-arg DISTRO=ubuntu --build-arg VERSION=21.10
-endif
-
 installed_image_stamp=.dpkg-install-$(dist)-stamp
 systemd_path=/bin/systemd
 bin_sh=bash
 pkgmgr=dpkg
+
+ifeq ($(dist),focal)
+	build_args=--build-arg DISTRO=ubuntu --build-arg VERSION=20.04
+endif
+
+ifeq ($(dist),bullseye)
+	build_args=--build-arg DISTRO=debian --build-arg VERSION=bullseye
+endif
+
+ifeq ($(dist),jammy)
+	build_args=--build-arg DISTRO=ubuntu --build-arg VERSION=22.04
+endif
+
+ifeq ($(dist),kinetic)
+	build_args=--build-arg DISTRO=ubuntu --build-arg VERSION=22.10
+endif
 
 ifeq ($(dist),fedora34)
 	installed_image_stamp=.rpm-install-$(dist)-stamp
@@ -61,7 +61,7 @@ ifeq ($(dist),alpine)
 	pkgmgr=apk
 endif
 
-.deps-buster-stamp .deps-focal-stamp .deps-hirsute-stamp .deps-bullseye-stamp .deps-impish-stamp:
+.deps-focal-stamp .deps-kinetic-stamp .deps-jammy-stamp .deps-bullseye-stamp:
 	cd .. && podman build -t vula-deps-$(dist) -f podman/Dockerfile.vula-deps $(build_args) .
 	touch .deps-$(dist)-stamp
 
