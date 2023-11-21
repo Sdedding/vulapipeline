@@ -72,7 +72,7 @@ endif
 	podman run $(podman_args) --name vula-tmp --detach vula-deps-$(dist) $(systemd_path)
 	podman exec -it vula-tmp dnf -y install iputils gcc make python3-click python3-cpuinfo python3-cryptography python3-hkdf python3-ifaddr python3-matplotlib python3-mpmath python3-networkx python3-numpy python3-packaging python3-pathtools python3-pip python3-pluggy python3-progress python3-py python3-pydbus python3-pygments python3-pyroute2 python3-pytest python3-pytest-runner python3-qrcode python3-schema python3-setuptools python3-systemd python3-toml python3-yaml python3-zeroconf python3-babel python3-tk rpm-build wireguard-tools git
 	# note: pinned pyroute may not be necessary anymore FIXME
-	podman exec -it vula-tmp pip install pyroute2==0.5.14 pynacl sibc wheel
+	podman exec -it vula-tmp pip install pyroute2==0.5.14 pynacl highctidh wheel
 	# note: TEMP=/var/tmp/ is required because /tmp is mounted noexec on some systems
 	podman exec -e TEMP=/var/tmp/ -it vula-tmp pip install vula_libnss
 	podman stop vula-tmp
@@ -93,7 +93,7 @@ endif
 		apkbuild-pypi
 		# libressl-dev musl-dev libffi-dev
 	# note: pinned pyroute may not be necessary anymore FIXME
-	podman exec -it vula-tmp pip install sibc vula_libnss hkdf schema pyroute2==0.5.14 # cpuinfo mpmath
+	podman exec -it vula-tmp pip install highctidh vula_libnss hkdf schema pyroute2==0.5.14 # cpuinfo mpmath
 	podman stop vula-tmp
 	podman commit vula-tmp vula-deps-$(dist)
 	podman rm vula-tmp
