@@ -33,6 +33,9 @@ endif
 ifeq ($(dist),mantic)
 	build_args=--build-arg DISTRO=ubuntu --build-arg VERSION=23.10
 endif
+ifeq ($(dist),bullseye)
+	build_args=--build-arg DISTRO=debian --build-arg VERSION=bullseye
+endif
 ifeq ($(dist),bookworm)
 	build_args=--build-arg DISTRO=debian --build-arg VERSION=bookworm
 endif
@@ -57,7 +60,7 @@ ifeq ($(dist),alpine)
 	pkgmgr=apk
 endif
 
-.deps-bookworm-stamp .deps-focal-stamp .deps-jammy-stamp .deps-mantic-stamp:
+.deps-bullseye-stamp .deps-bookworm-stamp .deps-focal-stamp .deps-jammy-stamp .deps-mantic-stamp:
 	cd .. && podman build -t vula-deps-$(dist) -f podman/Dockerfile.vula-deps $(build_args) .
 	touch .deps-$(dist)-stamp
 
