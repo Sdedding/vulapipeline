@@ -63,7 +63,7 @@ steps:
   # Override default CI env variable for now (see https://github.com/pypa/pipenv/issues/5554)
   build:
     group: test-and-static-analysis
-    image: python:3.8.12-bullseye
+    image: python:3.10-bullseye
     commands:
       - export CI=true
       - PATH=$PATH:~/.local/bin
@@ -79,3 +79,4 @@ steps:
       - dpkg -I deb_dist/*.deb
       - make rpm
       - rpm -qpl dist/*.rpm
+      - make pypi-build
