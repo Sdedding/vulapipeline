@@ -14,7 +14,7 @@ steps:
       - python -m pip install --user pipx
       - python -m pipx ensurepath
       - pipx install pipenv
-      - pipenv install --dev --skip-lock
+      - pipenv install -v --dev --skip-lock
       - . $(pipenv --venv)/bin/activate
       - make check
 
@@ -30,7 +30,7 @@ steps:
       - python -m pip install --user pipx
       - python -m pipx ensurepath
       - pipx install pipenv
-      - pipenv install --dev --skip-lock
+      - pipenv install -v --dev --skip-lock
       - . $(pipenv --venv)/bin/activate
       - make sast-analysis
 
@@ -46,7 +46,7 @@ steps:
       - python -m pip install --user pipx
       - python -m pipx ensurepath
       - pipx install pipenv
-      - pipenv install --dev --skip-lock
+      - pipenv install -v --dev --skip-lock
       - pipenv run pytest --cov
   
   # This job currently fails in a woodpecker pipeline because it seems that codberg-ci/woodpecker does not support
@@ -74,7 +74,7 @@ steps:
       - python -m pip install --user pipx
       - python -m pipx ensurepath
       - pipx install pipenv
-      - pipenv install --dev --skip-lock
+      - pipenv install -v --dev --skip-lock
       - . $(pipenv --venv)/bin/activate
       - make deb
       - dpkg -I deb_dist/*.deb
