@@ -34,7 +34,7 @@ steps:
       - pipenv install -v highctidh
       - pipenv install -v --dev --skip-lock
       - . $(pipenv --venv)/bin/activate
-      - pipenv run pytest-3 -v
+      - pipenv run pytest
 
   # Override default CI env variable for now (see https://github.com/pypa/pipenv/issues/5554)
   sast:
