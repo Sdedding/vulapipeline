@@ -31,6 +31,7 @@ steps:
       - python -m pip install --user pipx
       - python -m pipx ensurepath
       - pipx install pipenv
+      - pipenv install -v highctidh
       - pipenv install -v --dev --skip-lock
       - . $(pipenv --venv)/bin/activate
       - make sast-analysis
@@ -47,6 +48,7 @@ steps:
       - python -m pip install --user pipx
       - python -m pipx ensurepath
       - pipx install pipenv
+      - pipenv install -v highctidh
       - pipenv install -v --dev --skip-lock
       - pipenv run pytest --cov
   
@@ -75,6 +77,7 @@ steps:
       - python -m pip install --user pipx
       - python -m pipx ensurepath
       - pipx install pipenv
+      - pipenv install -v highctidh
       - pipenv install -v --dev --skip-lock
       - . $(pipenv --venv)/bin/activate
       - make deb
