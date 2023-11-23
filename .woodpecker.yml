@@ -20,6 +20,23 @@ steps:
       - make check
 
   # Override default CI env variable for now (see https://github.com/pypa/pipenv/issues/5554)
+  test:
+    group: test-and-static-analysis
+    image: python:3.10-bookworm
+    commands:
+      - export CI=true
+      - PATH=$PATH:~/.local/bin
+      - apt update
+      - apt install -y --no-install-recommends pkg-config libglib2.0-dev libcairo2-dev libgirepository1.0-dev python3-all-dev python3-tk make git portaudio19-dev gcc clang python3 python3-build python3-setuptools python3-stdeb build-essential python3-venv python3-wheel python3-pip dh-python flit debhelper dh-python fakeroot python3-setuptools rpm python3-xlib
+      - python -m pip install --user pipx
+      - python -m pipx ensurepath
+      - pipx install pipenv
+      - pipenv install -v highctidh
+      - pipenv install -v --dev --skip-lock
+      - . $(pipenv --venv)/bin/activate
+      - pytest-3 -v -n`nproc`
+
+  # Override default CI env variable for now (see https://github.com/pypa/pipenv/issues/5554)
   sast:
     group: test-and-static-analysis
     image: python:3.10-bookworm
@@ -44,13 +61,13 @@ steps:
       - export CI=true
       - PATH=$PATH:~/.local/bin
       - apt update
-      - apt install -y --no-install-recommends pkg-config libglib2.0-dev libcairo2-dev libgirepository1.0-dev python3-all-dev python3-tk make git portaudio19-dev gcc clang python3 python3-build python3-setuptools python3-stdeb build-essential python3-venv python3-wheel python3-pip dh-python flit debhelper dh-python fakeroot python3-setuptools rpm python3-xlib
+      - apt install -y --no-install-recommends pkg-config libglib2.0-dev libcairo2-dev libgirepository1.0-dev python3-all-dev python3-tk make git portaudio19-dev gcc clang python3 python3-build python3-setuptools python3-stdeb build-essential python3-venv python3-wheel python3-pip dh-python flit debhelper dh-python fakeroot python3-setuptools rpm python3-xlib xvfb xauth
       - python -m pip install --user pipx
       - python -m pipx ensurepath
       - pipx install pipenv
       - pipenv install -v highctidh
       - pipenv install -v --dev --skip-lock
-      - pipenv run pytest --cov
+      - xvfb-run -- pipenv run pytest --cov
   
   # This job currently fails in a woodpecker pipeline because it seems that codberg-ci/woodpecker does not support
   # a "podman inside docker container" setup. Will raise a `cannot clone: Operation not permitted` error.
