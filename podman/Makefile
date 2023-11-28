@@ -1,7 +1,7 @@
 VERSION := $(shell cd ..; python3 setup.py version|tail -n1)
 DEB_NAME := ../deb_dist/python3-vula_${VERSION}-1_all.deb
 
-podman_args=--volume $(shell readlink -f ..):/root/vula --workdir /root/vula
+podman_args=--volume $(shell readlink -f ..):/root/vula:z --workdir /root/vula
 
 .PHONY: help
 help:
@@ -14,7 +14,7 @@ debian-deps-stamp:
 	# build base image with systemd.
 	# uncomment this to avoid using the podman cache:
 	# podman build -t vula-debian-deps -f Dockerfile.debian-systemd --no-cache .
-	podman build -t vula-debian-deps -f Dockerfile.debian-systemd .
+	cd .. && podman build -t vula-debian-deps -f podman/Dockerfile.debian-systemd .
 	touch $@
 
 ${DEB_NAME}: debian-deps-stamp
