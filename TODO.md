@@ -2,6 +2,10 @@
 
 We should migrate everything in this TODO to codeberg issues.
 
+- Update files such as `contrib/README.macOS.md` to reflect sibc to highctidh change
+
+- Update misc/vula.vp to replace csidh with ctidh to reduce confusion; proof otherwise holds
+
 - URGENT pre pypi release: determine if missing requirements.txt breaks PyPI packaging
 
 - review Tk frontend more; fix scrolling bug there.
@@ -221,7 +225,7 @@ We should migrate everything in this TODO to codeberg issues.
 -- post-paper deadline
 -- easy, boring, uninteresting, hateful
 
-- use other CSIDH library (sidechannel free library)
+- Improve highctidh library
 -- post-paper deadline
 
 - Website

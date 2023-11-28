@@ -3,7 +3,7 @@
  verify a peer or a set of vula peers.  This program's output is intended to
  be fed into the vula-organize daemon. It should authenticate an already
  known peer or peers and sets a bit to keep state that it has verified them.
- The QR code also includes a PSK and later will use CSIDH to automatically set
+ The QR code also includes a PSK and later will use CTIDH to automatically set
  a PSK on a pair-wise basis.
 
  The output of this program may be written to a pipe, a log file, a unix
@@ -26,22 +26,20 @@ try:
 except ImportError:
     qrcode = None
 
-import click
 import hashlib
 import json
+import sys
+
+import click
 import pydbus
 import yaml
 from click.exceptions import Exit
 from gi.repository import GLib
 
-import sys
 from .common import escape_ansi
-from .constants import (
-    _ORGANIZE_DBUS_NAME,
-    _ORGANIZE_DBUS_PATH,
-)
+from .constants import _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
 from .engine import Result
-from .notclick import DualUse, red, green, bold
+from .notclick import DualUse, bold, green, red
 from .peer import Descriptor
 from .verify_audio import VerifyAudio
 

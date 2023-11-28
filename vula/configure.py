@@ -3,40 +3,37 @@
  WireGuard device with *wg-quick*.
 """
 
-from base64 import b64encode
-from logging import getLogger, Logger
 import os
+import time
+from base64 import b64encode
+from logging import Logger, getLogger
 from os import geteuid, mkdir, system
 from sys import platform
-import time
+
 import click
 from click.exceptions import Exit
+from cryptography.exceptions import UnsupportedAlgorithm
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
-from cryptography.exceptions import UnsupportedAlgorithm
 
+from .csidh import ctidh, ctidh_parameters
 from .status import main as StatusCommand
-from .csidh import csidh_parameters, CSIDH
 
 try:
     from dbus import Boolean, Interface, SystemBus
 except ImportError:
     pass
-from nacl.signing import SigningKey
 from nacl.encoding import Base64Encoder
+from nacl.signing import SigningKey
 
 try:
     from systemd import daemon
 except ImportError:
     pass
 
+from .common import KeyFile, attrdict
+from .constants import _ORGANIZE_KEYS_CONF_FILE, _WG_SERVICES
 from .notclick import DualUse
-from .constants import (
-    _WG_SERVICES,
-    _ORGANIZE_KEYS_CONF_FILE,
-)
-
-from .common import attrdict, KeyFile
 
 
 @DualUse.object(
@@ -59,7 +56,7 @@ class Configure(attrdict):
         self.update(**kw)
         self.log: Logger = getLogger()
         self.log.debug("Debug level logging enabled")
-        self._csidh = None
+        self._ctidh = None
         self._ctx = ctx
 
     def _ensure_root(self):
@@ -117,14 +114,14 @@ class Configure(attrdict):
         public = b64encode(verify_key.encode()).decode()
         return private, public
 
-    def _csidh_keypair_gen(self):
-        if self._csidh is None:
-            self.log.debug("Initializing CSIDH")
-            self._csidh = CSIDH(**csidh_parameters)
-        self.log.debug("Generating CSIDH keypair")
-        sk = self._csidh.secret_key()
-        pk = self._csidh.public_key(sk)
-        self.log.debug("CSIDH keypair generated")
+    def _ctidh_keypair_gen(self):
+        if self._ctidh is None:
+            self.log.debug("Initializing CTIDH")
+            self._ctidh = ctidh(ctidh_parameters)
+        self.log.debug("Generating CTIDH keypair")
+        sk = self._ctidh.generate_secret_key()
+        pk = sk.derive_public_key()
+        self.log.debug("CTIDH keypair generated")
         public = b64encode(pk).decode()
         private = b64encode(sk).decode()
         return private, public
@@ -157,15 +154,15 @@ class Configure(attrdict):
         keys = KeyFile(
             zip(
                 (
-                    "pq_csidhP512_sec_key",
-                    "pq_csidhP512_pub_key",
+                    "pq_ctidhP512_sec_key",
+                    "pq_ctidhP512_pub_key",
                     "vk_Ed25519_sec_key",
                     "vk_Ed25519_pub_key",
                     "wg_Curve25519_sec_key",
                     "wg_Curve25519_pub_key",
                 ),
                 (
-                    self._csidh_keypair_gen()
+                    self._ctidh_keypair_gen()
                     + self._ed25519_keypair_gen()
                     + self._curve25519_keypair_gen()
                 ),
