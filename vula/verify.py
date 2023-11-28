@@ -13,9 +13,6 @@
  after it has been verified.
 """
 
-from logging import INFO, DEBUG, Logger, basicConfig, getLogger
-from sys import stdout
-
 try:
     import cv2
     from pyzbar.pyzbar import decode
@@ -29,24 +26,24 @@ try:
 except ImportError:
     qrcode = None
 
-import json
-import yaml
 import click
-from click.exceptions import Exit
+import hashlib
+import json
 import pydbus
-from time import sleep
+import yaml
+from click.exceptions import Exit
+from gi.repository import GLib
 
-from .common import jsonrepr
+import sys
+from .common import escape_ansi
 from .constants import (
-    _DATE_FMT,
-    _LABEL,
-    _LOG_FMT,
     _ORGANIZE_DBUS_NAME,
     _ORGANIZE_DBUS_PATH,
 )
-from .click import DualUse, green, bold
-from .peer import Descriptor
 from .engine import Result
+from .notclick import DualUse, red, green, bold
+from .peer import Descriptor
+from .verify_audio import VerifyAudio
 
 
 @DualUse.object(
@@ -103,7 +100,8 @@ class VerifyCommands(object):
     @click.argument('hostname', type=str, required=True)
     def scan(self, width, height, camera, hostname, debug):
         """
-        We expect a string object that roughly looks like the following three things:
+        We expect a string object that roughly looks like the following three
+        things:
 
 
             local.vula:desc:<descriptor base64 representation>
@@ -148,13 +146,14 @@ class VerifyCommands(object):
         if sub_type == "desc":
             res = self.organize.process_descriptor_string(data)
             res = Result(yaml.safe_load(res))
+            click.echo(res)
         elif sub_type == "vk":
             vk = self.organize.get_vk_by_name(hostname)
             if vk == data:
                 res = self.organize.verify_and_pin_peer(vk, hostname)
                 res = Result(yaml.safe_load(res))
-                if res.error != None:
-                    click.echo(res)
+                click.echo(res)
+                if res.error is not None:
                     raise Exception(res.error)
             else:
                 click.echo("keys are for the wrong DeLorean")
@@ -162,13 +161,74 @@ class VerifyCommands(object):
         else:
             click.echo("unknown qrcode subtype")
             raise Exit(1)
-        if res.error != None:
+        if res.error is not None:
             click.echo(res)
             raise Exit(1)
         else:
             if debug:
                 click.echo(res)
             raise Exit(0)
+
+    @DualUse.method()
+    @click.option(
+        '-v', '--verbose', default=False, is_flag=True, show_default=True
+    )
+    def speak(self, verbose):
+        vk = str(self.vk)
+        if verbose:
+            click.echo(f"Sending vk: {vk}")
+        VerifyAudio(verbose).send_verification_key(vk)
+        if verbose:
+            click.echo("Done speaking.")
+
+    @DualUse.method()
+    @click.argument('hostname', type=str, required=True)
+    @click.option(
+        '-v', '--verbose', default=False, is_flag=True, show_default=True
+    )
+    def listen(self, hostname, verbose):
+        try:
+            known_vk = self.organize.get_vk_by_name(hostname)
+        except GLib.Error:
+            click.echo(
+                f"hostname {hostname} unknown, "
+                f"can only verify previously discovered hosts"
+            )
+            sys.exit(6)
+        click.echo(green(bold('Listening ... ')) + 'Press Ctrl+C to stop')
+        received_vk = VerifyAudio(verbose).receive_verification_key()
+        if received_vk is not None:
+            sanitized_vk: str = escape_ansi(received_vk)
+            if sanitized_vk != received_vk:
+                click.echo(
+                    "The received verification key had to be sanitized, "
+                    "this is a possible injection attack!"
+                )
+                raise Exit(1)
+            if verbose:
+                click.echo(f"Received VK: {sanitized_vk}")
+            if (
+                hashlib.sha256(known_vk.encode('utf-8')).hexdigest()
+                == received_vk
+            ):
+                res = self.organize.verify_and_pin_peer(known_vk, hostname)
+                res = Result(yaml.safe_load(res))
+                click.echo(res)
+                if res.error is not None:
+                    raise Exception(res.error)
+            else:
+                click.echo(
+                    red(
+                        bold(
+                            f"The received vk: {sanitized_vk}"
+                            f" and known vk: {known_vk} "
+                            f"of hostname {hostname} do not match."
+                        )
+                    )
+                )
+                if verbose:
+                    print("keys are for the wrong DeLorean")
+                raise Exit(1)
 
 
 main = VerifyCommands.cli

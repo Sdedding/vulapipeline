@@ -42,6 +42,8 @@ for a comparison of Vula to some related projects.
 
 ### Current status
 
+[![status-badge](https://ci.codeberg.org/api/badges/vula/vula/status.svg)](https://ci.codeberg.org/vula/vula)
+
 Vula is functional today, although it has some known issues documented in
 [`STATUS.md`](https://codeberg.org/vula/vula/src/branch/main/STATUS.md). It is
 ready for daily use by people who are proficient with Linux networking and the
@@ -52,6 +54,9 @@ installation and usage instructions.
 
 See [`HACKING.md`](https://codeberg.org/vula/vula/src/branch/main/HACKING.md) for
 some tips on opening the hood.
+
+See [`DEPENDENCY.md`](DEPENDENCY.md) for diagrams illustrating the different
+dependecy relationships between internal and external python modules.
 
 ### Security contact
 
@@ -81,3 +86,8 @@ has some history about the name Vula.
 Vula is not associated with or endorsed by the
 [WireGuard](https://www.wireguard.com/) project. WireGuard is a registered
 trademark of [Jason A.  Donenfeld](https://www.zx2c4.com/).
+
+This project is funded through the [NGI Assure Fund](https://nlnet.nl/assure),
+a fund established by [NLnet](https://nlnet.nl) with financial support from the
+European Commission's [Next Generation Internet](https://ngi.eu) program. Learn
+more on the [NLnet project page](https://nlnet.nl/project/Vula#ack).

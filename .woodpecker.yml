@@ -1,0 +1,81 @@
+# TODO: We don't have artifacts in woodpecker pipelines (There are plugins like https://woodpecker-ci.org/plugins/S3%20Plugin)
+#       so for now we should print out all results to stdout.
+pipeline:
+
+  # Override default CI env variable for now (see https://github.com/pypa/pipenv/issues/5554)
+  check:
+    group: test-and-static-analysis
+    image: python:3.11.1-bullseye
+    commands:
+      - export CI=true
+      - PATH=$PATH:~/.local/bin
+      - apt update
+      - apt install -y --no-install-recommends pkg-config libglib2.0-dev libcairo2-dev libgirepository1.0-dev python3-all-dev python3-tk make git
+      - python -m pip install --user pipx
+      - python -m pipx ensurepath
+      - pipx install pipenv
+      - pipenv install --dev --skip-lock
+      - make check
+
+  # Override default CI env variable for now (see https://github.com/pypa/pipenv/issues/5554)
+  sast:
+    group: test-and-static-analysis
+    image: python:3.11.1-bullseye
+    commands:
+      - export CI=true
+      - PATH=$PATH:~/.local/bin
+      - apt update
+      - apt install -y --no-install-recommends pkg-config libglib2.0-dev libcairo2-dev libgirepository1.0-dev python3-all-dev python3-tk make git
+      - python -m pip install --user pipx
+      - python -m pipx ensurepath
+      - pipx install pipenv
+      - pipenv install --dev --skip-lock
+      - make sast-analysis
+
+  # Override default CI env variable for now (see https://github.com/pypa/pipenv/issues/5554)
+  pytest-coverage:
+    group: test-and-static-analysis
+    image: python:3.11.1-bullseye
+    commands:
+      - export CI=true
+      - PATH=$PATH:~/.local/bin
+      - apt update
+      - apt install -y --no-install-recommends pkg-config libglib2.0-dev libcairo2-dev libgirepository1.0-dev python3-all-dev python3-tk make git
+      - python -m pip install --user pipx
+      - python -m pipx ensurepath
+      - pipx install pipenv
+      - pipenv install --dev --skip-lock
+      - pipenv run pytest --cov
+  
+  # This job currently fails in a woodpecker pipeline because it seems that codberg-ci/woodpecker does not support
+  # a "podman inside docker container" setup. Will raise a `cannot clone: Operation not permitted` error.
+  # 
+  # We could try to replace the podman containers with qemu vm's in order to run the ping-test in a woodpecker pipeline.
+  # For now, we comment the ping-test job out.
+  # 
+  # ping-test:
+  #   group: test
+  #   image: quay.io/podman/stable:latest
+  #   commands:
+  #     - dnf install -y make python-setuptools git-core
+  #     - cd podman && make test-ping
+
+  # Override default CI env variable for now (see https://github.com/pypa/pipenv/issues/5554)
+  build:
+    group: test-and-static-analysis
+    image: python:3.8.12-bullseye
+    commands:
+      - export CI=true
+      - PATH=$PATH:~/.local/bin
+      - apt update
+      - apt install -y --no-install-recommends pkg-config libglib2.0-dev libcairo2-dev libgirepository1.0-dev python3-all-dev python3-tk make git
+      - python -m pip install --user pipx
+      - python -m pipx ensurepath
+      - pipx install pipenv
+      - pipenv install --dev --skip-lock
+      - . $(pipenv --venv)/bin/activate
+      - apt install -y --no-install-recommends build-essential debhelper dh-python fakeroot git make python3-setuptools rpm
+      - make deb
+      - dpkg -I deb_dist/*.deb
+      - make rpm
+      - rpm -qpl dist/*.rpm
