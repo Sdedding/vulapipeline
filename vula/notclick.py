@@ -64,7 +64,6 @@ class OrderedGroup(click.Group):
 
 
 class Debuggable(OrderedGroup):
-
     """
     This is a subclass of click.Group which adds a --debug option which enables
     two features which are useful for debugging:
@@ -130,9 +129,9 @@ class Debuggable(OrderedGroup):
         elif ctx.params.get('debug'):
             try:
                 cmd = reduce(
-                    lambda a, b: a.get(b)
-                    if type(a) is dict
-                    else getattr(a, b),
+                    lambda a, b: (
+                        a.get(b) if type(a) is dict else getattr(a, b)
+                    ),
                     command.split('.'),
                     self.scope,
                 )
@@ -183,7 +182,6 @@ def _click_command_from_annotated_function(cmd):
 
 
 class DualUse(click.Group):
-
     """
     @DualUse.object() is a class decorator which enables class instances to be
     usable both as normal python objects and as click commandline functions.

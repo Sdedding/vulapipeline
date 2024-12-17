@@ -113,6 +113,7 @@ class TestPeerShow(unittest.TestCase):
       warning: wireguard peer is not configured
       status: enabled pinned unverified
       endpoint: 10.0.0.1:1234
+      primary ip: 10.0.0.1
       allowed ips: 10.0.0.1/32
       latest signature: 0:00:00 ago
       latest handshake: none
@@ -124,6 +125,7 @@ class TestPeerShow(unittest.TestCase):
       id: Alice/////////////////////////////////////8=
       status: enabled pinned unverified
       endpoint: 10.0.0.1:1234
+      primary ip: 10.0.0.1
       allowed ips: 10.0.0.1/32
       latest signature: 0:00:00 ago
       latest handshake: 0:00:00 ago

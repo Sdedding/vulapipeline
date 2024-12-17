@@ -1,11 +1,15 @@
 """
 vula constant values
 """
+
 from typing import List
+from ipaddress import ip_network
 
 _LOG_FMT: str = "%(asctime)s: %(message)s"
 _DATE_FMT: str = "%Y-%m-%d-%H:%M:%S"
 _WG_INTERFACE: str = "vula"
+
+_ULA_SUBNET: str = ip_network("fdff:ffff:ffdf::/48")
 
 _WG_SERVICES: List = [
     "vula-publish.service",

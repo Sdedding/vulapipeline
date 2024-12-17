@@ -220,7 +220,7 @@ editable-image: .editable-$(dist)-image-stamp testnet-clean
 
 .PHONY: .create-network
 .create-network:
-	-podman network create --internal $(NET_NAME)
+	-podman network create --ipv6 --internal $(NET_NAME)
 
 .PHONY: shell
 shell: $(installed_image_stamp)
@@ -287,6 +287,10 @@ testnet-clean-all: testnet-stop
 .PHONY: testnet-shell
 testnet-shell: testnet-start
 	podman exec -it $(test1) $(bin_sh)
+
+.PHONY: testnet-shell2
+testnet-shell2: testnet-start
+	podman exec -it $(test2) $(bin_sh)
 
 .PHONY: test
 test: .testnet-started-$(dist)-stamp

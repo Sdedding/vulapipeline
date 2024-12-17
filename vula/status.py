@@ -39,9 +39,11 @@ def main(only_systemd):
         status = (
             green
             if status.strip() in ('active',)
-            else yellow
-            if status.strip() in ('inactive', 'activatable')
-            else red
+            else (
+                yellow
+                if status.strip() in ('inactive', 'activatable')
+                else red
+            )
         )(status)
         click.echo("[{}] {}".format(status, service))
 

@@ -131,9 +131,9 @@ class PeerConfig(schemattrdict, serializable):
         KeyError:
         """
         res = {
-            k.replace('WGPEER_A_', '').lower(): dict(v)
-            if isinstance(v, netlink_atom)
-            else v
+            k.replace('WGPEER_A_', '').lower(): (
+                dict(v) if isinstance(v, netlink_atom) else v
+            )
             for k, v in dict(peer['attrs']).items()
         }
         res['allowed_ips'] = [
@@ -234,7 +234,6 @@ class PeerConfig(schemattrdict, serializable):
 @DualUse.object()
 @click.argument('name', type=str)
 class Interface(attrdict, yamlrepr_hl):
-
     """
     This is a wrapper for pyroute2's WireGuard interface.
 
@@ -364,9 +363,9 @@ class Interface(attrdict, yamlrepr_hl):
             return self
 
         res = {
-            k.replace('WGDEVICE_A_', '').lower(): dict(v)
-            if isinstance(v, netlink_atom)
-            else v
+            k.replace('WGDEVICE_A_', '').lower(): (
+                dict(v) if isinstance(v, netlink_atom) else v
+            )
             for k, v in dict(res[0]['attrs']).items()
         }
         res['peers'] = list(map(PeerConfig.from_netlink, res.get('peers', ())))
@@ -452,19 +451,26 @@ class Interface(attrdict, yamlrepr_hl):
                 "vula wg set {interface} peer {pk} "
                 "{remove}{endpoint}{args}{allowed_ips}".format(
                     remove="remove " if new.get('remove') else "",
-                    endpoint="endpoint %s:%s "
-                    % (new['endpoint_addr'], new['endpoint_port'])
-                    if (new.get('endpoint_addr') and new.get('endpoint_port'))
-                    else '',
+                    endpoint=(
+                        "endpoint %s:%s "
+                        % (new['endpoint_addr'], new['endpoint_port'])
+                        if (
+                            new.get('endpoint_addr')
+                            and new.get('endpoint_port')
+                        )
+                        else ''
+                    ),
                     args="".join(
                         "%s %s " % (k, v)
                         for k, v in new.items()
                         if k in ('persistent_keepalive', 'preshared_key')
                     ),
-                    allowed_ips='allowed-ips %s '
-                    % ",".join(ip for ip in new.get('allowed_ips', ()))
-                    if 'allowed_ips' in new
-                    else "",
+                    allowed_ips=(
+                        'allowed-ips %s '
+                        % ",".join(ip for ip in new.get('allowed_ips', ()))
+                        if 'allowed_ips' in new
+                        else ""
+                    ),
                     interface=self.name,
                     pk=new['public_key'],
                 )

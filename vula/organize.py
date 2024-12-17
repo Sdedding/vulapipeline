@@ -5,6 +5,7 @@
  modifying routing information. It does not need network access.
 
 """
+
 from __future__ import annotations
 
 import os
@@ -31,6 +32,7 @@ from .common import (
     memoize,
     raw,
     schemattrdict,
+    sort_LL_first,
     yamlrepr,
     yamlrepr_hl,
 )
@@ -56,14 +58,13 @@ from .csidh import ctidh, ctidh_parameters, hkdf
 from .discover import Discover
 from .engine import Engine, Result
 from .notclick import DualUse
-from .peer import Descriptor, PeerCommands, Peers
+from .peer import Descriptor, PeerCommands, Peers, Peer
 from .prefs import Prefs, PrefsCommands
 from .publish import Publish
 from .sys import Sys
 
 
 class SystemState(schemattrdict):
-
     """
     The SystemState object stores the parts of the system's state which are
     relevant to events in the organize state engine. The object should be
@@ -74,23 +75,26 @@ class SystemState(schemattrdict):
     schema = Schema(
         dict(
             current_subnets={Optional_(Use(ip_network)): [Use(ip_address)]},
+            current_interfaces={Optional_(str): [Use(ip_address)]},
             our_wg_pk=b64_bytes.with_len(32),
             gateways=[Use(ip_address)],
         )
     )
 
     default = dict(
-        our_wg_pk=b'\x00' * 32,
         current_subnets={},
+        current_interfaces={},
+        our_wg_pk=b'\x00' * 32,
         gateways=[],
     )
 
     @classmethod
     def read(cls, organize):
-        subnets, gateways = organize.sys._get_system_state()
+        subnets, interfaces, gateways = organize.sys._get_system_state()
         return cls(
             gateways=gateways,
             current_subnets=subnets,
+            current_interfaces=interfaces,
             our_wg_pk=organize.our_wg_pk,
         )
 
@@ -226,7 +230,7 @@ class OrganizeState(Engine, yamlrepr_hl):
             # bug: this doesn't work for the REMOVE operation where there is no
             # path[1] but the peer remove command calls event_USER_REMOVE_PEER
             # so that is ok for now
-            self.result.add_triggers(sync_peer=(path[1],))
+            self._update_peer(Peer(self.next_state['peers'][path[1]]))
         elif path[0] == 'prefs':
             self.result.add_triggers(get_new_system_state=())
         # FIXME: with more granular actions for peers and prefs, we could
@@ -269,12 +273,8 @@ class OrganizeState(Engine, yamlrepr_hl):
                     # multiple default routes, but only one can get
                     # allowedips=/0 so we just take the first one.)
                     break
-        for peer in self.peers.limit(pinned=False).values():
-            if not addrs_in_subnets(
-                peer.enabled_ips, new_system_state.current_subnets
-            ):
-                # remove unpinned peers that are no longer local
-                self.action_REMOVE_PEER(peer)
+        for peer in self.peers.values():
+            self._update_peer(peer, system_state=new_system_state)
         self._SET('system_state', new_system_state)
 
         # TODO:
@@ -298,7 +298,7 @@ class OrganizeState(Engine, yamlrepr_hl):
         ):
             return self.action_REJECT(
                 descriptor,
-                "wrong subnet, current subnets are %r"
+                "no addresses local to us; our current subnets are %r"
                 % (self.system_state.current_subnets,),
             )
 
@@ -328,12 +328,55 @@ class OrganizeState(Engine, yamlrepr_hl):
     @Engine.action
     def action_ACCEPT_NEW_PEER(self, descriptor):
         peer = descriptor.make_peer(
-            pinned=False
-            if descriptor.ephemeral
-            else bool(self.prefs.pin_new_peers)
+            pinned=(
+                False
+                if descriptor.ephemeral
+                else bool(self.prefs.pin_new_peers)
+            )
         )
         self._SET(('peers', descriptor.id), peer)
-        if set(descriptor.addrs) & set(self.system_state.gateways):
+        self._update_peer(peer)
+
+    @Engine.action
+    def action_UPDATE_PEER_DESCRIPTOR(self, peer, desc):
+        self._SET(('peers', peer.id, 'descriptor'), desc)
+        self._update_peer(peer, desc)
+
+    def _update_peer(self, peer, desc=None, system_state=None):
+        if desc is None:
+            desc = peer.descriptor
+        if system_state is None:
+            system_state = self.system_state
+        v4 = {
+            i: peer.pinned or any(i in s for s in system_state.current_subnets)
+            for i in desc.IPv4addrs + list(peer.IPv4addrs)
+        }
+        if v4 != peer.IPv4addrs:
+            self._SET(
+                ('peers', peer.id, 'IPv4addrs'),
+                v4,
+            )
+        v6 = {
+            i: peer.pinned or any(i in s for s in system_state.current_subnets)
+            for i in desc.IPv6addrs + list(peer.IPv6addrs)
+        }
+        if v6 != peer.IPv6addrs:
+            self._SET(
+                ('peers', peer.id, 'IPv6addrs'),
+                v6,
+            )
+        if not any(list(v4.values()) + list(v6.values())):
+            self.action_REMOVE_PEER(peer)
+
+        if desc.hostname not in peer.nicknames and any(
+            desc.hostname.endswith(domain)
+            for domain in self.prefs.local_domains
+        ):
+            self._SET(('peers', peer.id, 'nicknames', desc.hostname), True)
+
+        if set(
+            a for a in desc.addrs if a in system_state.current_subnets
+        ) & set(self.system_state.gateways):
             # BUG: this will fail (new peer won't be accepted) if the new peer
             # has a gateway IP and there is already another gateway. it fails
             # closed, but should perhaps do so more gracefully? this could only
@@ -341,25 +384,7 @@ class OrganizeState(Engine, yamlrepr_hl):
             # multiple default routes (because otherwise the other gateway
             # would've already been removed before action_ACCEPT_NEW_PEER was
             # called).
-            self._SET(('peers', descriptor.id, 'use_as_gateway'), True)
-        self.result.add_triggers(sync_peer=(peer.id,))
-
-    @Engine.action
-    def action_UPDATE_PEER_DESCRIPTOR(self, peer, desc):
-        self._SET(('peers', peer.id, 'descriptor'), desc)
-        self._ADD(
-            ('peers', peer.id, 'IPv4addrs'),
-            {i: True for i in desc.IPv4addrs if i not in peer.IPv4addrs},
-        )
-        self._ADD(
-            ('peers', peer.id, 'IPv6addrs'),
-            {i: True for i in desc.IPv6addrs if i not in peer.IPv6addrs},
-        )
-        if desc.hostname not in peer.nicknames:
-            self._SET(('peers', peer.id, 'nicknames', desc.hostname), True)
-
-        if set(desc.addrs) & set(self.system_state.gateways):
-            self._SET(('peers', desc.id, 'use_as_gateway'), True)
+            self._SET(('peers', peer.id, 'use_as_gateway'), True)
 
         self.result.add_triggers(sync_peer=(peer.id,))
 
@@ -570,6 +595,17 @@ class Organize(attrdict):
         self._state.debug_log = self.log.debug
         self._latest_descriptors = {}
 
+        if self.prefs.primary_ip in (
+            None,
+            ip_address(False),
+            ip_address('0::'),
+        ):
+            self.state.event_USER_EDIT(
+                'SET',
+                ('prefs', 'primary_ip'),
+                ip_address(bytes.fromhex('fdffffffffdf') + os.urandom(10)),
+            )
+
         if ctx.invoked_subcommand is None:
             self.run(monolithic=False)
 
@@ -611,7 +647,9 @@ class Organize(attrdict):
             {
                 "pk": self._keys.wg_Curve25519_pub_key,
                 "c": self._keys.pq_ctidhP512_pub_key,
-                "addrs": ip_addrs,
+                "addrs": ','.join(
+                    map(str, [self.prefs.primary_ip] + sort_LL_first(ip_addrs))
+                ),
                 "vk": self._keys.vk_Ed25519_pub_key,
                 "vf": vf,
                 "dt": "86400",
@@ -655,7 +693,7 @@ class Organize(attrdict):
                 self.log.info(
                     "Existing state file will be overwritten because it was "
                     "malformed: %r",
-                    ex
+                    ex,
                     # XXX we should probably move the malformed file aside here
                 )
             self.log.debug("Created new OrganizeState")
@@ -685,7 +723,7 @@ class Organize(attrdict):
         """
         hosts_file: str = _ORGANIZE_HOSTS_FILE
         hosts = {
-            name: list(peer.descriptor.addrs)[0]
+            name: peer.primary_ip
             # XXX make this use the "best ip" logic
             for peer in self.peers.limit(enabled=True).values()
             for name in peer.enabled_names
@@ -819,30 +857,39 @@ class Organize(attrdict):
     def _instruct_zeroconf(self):
         descriptors = {}
         vf: int = int(time.time())
-        for net, ips in self.state.system_state.current_subnets.items():
-            desc = {
+        ips_to_publish = []
+        for iface, ips in self.state.system_state.current_interfaces.items():
+            ips_to_publish.extend(list(map(str, ips)))
+            descriptors[iface] = {
                 k: str(v)
-                for k, v in self._construct_service_descriptor(
-                    ",".join(str(ip) for ip in ips), vf
-                )
-                ._dict()
-                .items()
+                for k, v in raw(
+                    self._construct_service_descriptor(ips, vf)
+                ).items()
             }
-            for ip in ips:
-                descriptors[str(ip)] = desc
-        current_ips = list(map(str, self.state.system_state.current_ips))
+        ips_to_publish = sorted(
+            i
+            for i in map(str, ips_to_publish)
+            if i != str(self.prefs.primary_ip)
+        )
+        discover_ips = sorted(
+            i
+            for i in map(str, self.state.system_state.current_ips)
+            if i != str(self.prefs.primary_ip)
+        )
         self.log.info(
             "discovering on {ips} and publishing {pub}".format(
-                ips=current_ips,
-                pub='on same'
-                if list(descriptors.keys()) == current_ips
-                else descriptors,
+                ips=discover_ips,
+                pub=(
+                    'on same'
+                    if sorted(ips_to_publish) == discover_ips
+                    else ips_to_publish
+                ),
             )
         )
-        self.discover.listen(current_ips)
-        self.publish.listen(descriptors)
+        self.discover.listen(discover_ips)
+        self.publish.listen(descriptors, [str(self.prefs.primary_ip)])
         self._latest_descriptors = descriptors
-        self.log.info("Current IP(s): {}".format(current_ips))
+        self.log.info("Current IP(s): {}".format(ips_to_publish))
         self.log.info(
             "Current descriptors: {}".format(self._latest_descriptors)
         )

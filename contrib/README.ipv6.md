@@ -1,3 +1,29 @@
+The below report was written by BFH students in 2022 to assess the state of
+IPv6 support in vula and identify what needs to be fixed.
+
+At the time, there was some IPv6 support in some parts of vula's code but it
+had never been tested as was incomplete. Since then, IPv6 support has been
+improved and tested somewhat, and is now enabled in the podman test environment
+(which now uses IPv6 ULA addresses) for LAN traffic.
+
+Default route encryption over v6 remains non-working at this time.
+
+The eight places in the vula source code which this report identifies as
+needing to be updated for v6 compatibility remain unfixed, however. Six of them
+are relevant to using vula for default route encryption on a v6 network, while
+the other two (`peer.py` and `wg.py`) both only affect code which was used
+during development but is not used in practice.
+
+Next steps for V6:
+
+* Additional testing with ULA addresses, including adding a V4-only peer to the
+network.
+
+* Implement default route encryption (requires fixing the six things mentioned
+in the report below).
+
+***
+
 # Abstract
 We did an IPv6 compatibility analysis for the Vula project in which we sought to answer whether Vula in its current state is IPv6-compatible.
 If Vula turns out not to be compatible yet, we would perform a code analysis to determine which parts of Vula are not yet compatible.

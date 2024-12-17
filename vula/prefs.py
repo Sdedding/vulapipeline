@@ -4,7 +4,8 @@ from ipaddress import ip_network
 
 import click
 import yaml
-from schema import Optional, Schema, Use
+from schema import Optional, Schema, Use, Or
+from ipaddress import ip_address
 
 from .common import (
     DualUse,
@@ -32,6 +33,7 @@ class Prefs(yamlrepr_hl, schemattrdict):
             'accept_default_route': Flexibool,
             Optional('overwrite_unpinned'): Flexibool,  # TODO
             Optional('expire_time'): Use(int),  # TODO
+            'primary_ip': Use(ip_address),  # TODO
             'record_events': Flexibool,
         }
     )
@@ -41,6 +43,8 @@ class Prefs(yamlrepr_hl, schemattrdict):
         accept_nonlocal=False,
         auto_repair=True,
         subnets_allowed=[
+            "fc00::/7",
+            "fe80::/10",
             "10.0.0.0/8",
             "192.168.0.0/16",
             "172.16.0.0/12",
@@ -54,12 +58,13 @@ class Prefs(yamlrepr_hl, schemattrdict):
             'thunderbolt',
             # 'mpqemubr0',
         ],
-        local_domains=["local."],
+        local_domains=["local.", "local"],
         ephemeral_mode=False,
         accept_default_route=True,
         record_events=False,
         expire_time=3600,
         overwrite_unpinned=True,
+        primary_ip=0,
     )
 
 

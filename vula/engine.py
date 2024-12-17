@@ -80,7 +80,6 @@ class Result(yamlrepr_hl, schemattrdict):
 
 
 class Engine(schemattrdict, yamlfile):
-
     """
     This is a transactional state engine. Subclasses implement rules in the
     form of events and actions.
@@ -174,6 +173,7 @@ class Engine(schemattrdict, yamlfile):
                 res = self.Result(**res)
             finally:
                 self.result = None
+                self.next_state = None
                 self._lock.release()
             if self.trigger_target:
                 res.run_triggers(self.trigger_target)
@@ -187,14 +187,15 @@ class Engine(schemattrdict, yamlfile):
         """
         Decorator for action methods
         """
-
         assert method.__name__.startswith('action_')
         name = method.__name__.split('_', 1)[1]
 
         @wraps(method)
         def _method(self, *a):
+            assert self.next_state, "can't run actions when not in an event"
             self.result.actions.append((name,) + a)
             method(self, *a)
+            return self.next_state
 
         return _method
 

@@ -4,7 +4,7 @@ from socket import AddressFamily
 
 from pyroute2 import IPRoute, IPRSocket
 
-from .constants import _LINUX_MAIN_ROUTING_TABLE, IPv4_GW_ROUTES
+from .constants import _LINUX_MAIN_ROUTING_TABLE, IPv4_GW_ROUTES, _WG_INTERFACE
 from .wg import Interface as WgInterface
 
 # FIXME: find where the larger canonical version of this table lives
@@ -93,10 +93,23 @@ class Sys(object):
         self._monitor_thread = None
         ip.close()
 
+    @property
+    def idx_to_link_name(self):
+        return {
+            L['index']: dict(L['attrs'])['IFLA_IFNAME']
+            for L in self.ipr.get_links()
+        }
+
+    def _get_all_addrs(self):
+        links = self.idx_to_link_name
+        addrs = self.ipr.get_addr()
+        for a in addrs:
+            addr = ip_address(dict(a['attrs'])['IFA_ADDRESS'])
+            iface = links[a['index']]
+            yield addr, a, iface
+
     def _get_system_state(self):
         "WIP"
-
-        addrs = self.ipr.get_addr()
 
         gateways = list(
             set(
@@ -107,10 +120,9 @@ class Sys(object):
         )
 
         current_subnets = {}
+        current_interfaces = {}
 
-        for a in addrs:
-            addr = ip_address(dict(a['attrs'])['IFA_ADDRESS'])
-            iface = dict(a['attrs']).get('IFA_LABEL', '')
+        for addr, a, iface in self._get_all_addrs():
             this_subnet = ip_network(
                 "%s/%s" % (addr, a['prefixlen']), strict=False
             )
@@ -118,6 +130,7 @@ class Sys(object):
                 [
                     iface.startswith(prefix)
                     for prefix in self.organize.prefs.iface_prefix_allowed
+                    + [_WG_INTERFACE]
                 ]
             ):
                 continue
@@ -130,8 +143,9 @@ class Sys(object):
                 for subnet in self.organize.prefs.subnets_forbidden
             ):
                 current_subnets.setdefault(this_subnet, []).append(addr)
+                current_interfaces.setdefault(iface, []).append(addr)
 
-        return current_subnets, gateways
+        return current_subnets, current_interfaces, gateways
 
     def get_new_system_state(self):
         return self.organize.get_new_system_state()
@@ -142,7 +156,26 @@ class Sys(object):
             listen_port=self.organize.port,
             fwmark=self.organize.fwmark,
             dryrun=dryrun,
+        ) + self.addr_add(
+            self.organize.prefs.primary_ip,
+            self.wg_name,
+            mask=48,  # FIXME: hardcoded netmask for our ULA
+            dryrun=dryrun,
         )
+
+    def addr_add(self, addr, dev, mask, dryrun=False):
+        res = []
+        oif = self.ipr.link_lookup(ifname=dev)[0]
+        if not [
+            a
+            for _addr, a, _iface in self._get_all_addrs()
+            if addr == _addr and dev == _iface
+        ]:
+            res.append(f"ip addr add {addr}/{mask} dev {dev}")
+            if not dryrun:
+                self.log.info("[#] %s", str(res[-1]))
+                self.ipr.addr("add", index=oif, address=str(addr), mask=mask)
+        return res
 
     def sync_peer(self, vk: str, dryrun: bool = False):
         """
@@ -315,7 +348,7 @@ class Sys(object):
         expected_routes = [
             str(dst)
             for peer in self.organize.peers.limit(enabled=True).values()
-            for dst in peer.allowed_ips
+            for dst in peer.routes
         ]
 
         current_routes = self.ipr.get_routes()

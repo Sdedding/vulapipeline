@@ -1,6 +1,7 @@
 """
 *vula* common functions.
 """
+
 from __future__ import annotations
 
 import copy
@@ -875,11 +876,16 @@ Flexibool = And(
         And(
             str,
             Use(
-                lambda v: 1
-                if v.lower() in ('true', 'yes', 'on', '1', 'y', 'j', 'ja')
-                else 0
-                if v.lower() in ('false', 'no', 'off', '0', 'n', 'nein', 'nej')
-                else repr(v)
+                lambda v: (
+                    1
+                    if v.lower() in ('true', 'yes', 'on', '1', 'y', 'j', 'ja')
+                    else (
+                        0
+                        if v.lower()
+                        in ('false', 'no', 'off', '0', 'n', 'nein', 'nej')
+                        else repr(v)
+                    )
+                )
             ),
         ),
     ),
@@ -948,7 +954,6 @@ class queryable(dict):
 
 
 class chunkable_values(dict):
-
     """
     This chunks and unchunks dictionary values.
 
@@ -1039,6 +1044,18 @@ def addrs_in_subnets(addrs, subnets):
     ]
 
 
+def sort_LL_first(ips):
+    """
+    This sorts a list of IPs to put the link-local ones first, and v6 addresses ahead of v4
+
+    >>> sort_LL_first([ip_address('169.254.0.1'), ip_address('127.0.0.1'), ip_address('ff00::1'), ip_address('169.254.0.2'), ip_address('fe80::1'), ip_address('0::1')])
+    [IPv6Address('fe80::1'), IPv4Address('169.254.0.1'), IPv4Address('169.254.0.2'), IPv6Address('ff00::1'), IPv6Address('::1'), IPv4Address('127.0.0.1')]
+    """
+    return sorted(
+        ips, key=lambda ip: (not ip.is_link_local, not ip.version == 6)
+    )
+
+
 class KeyFile(yamlrepr_hl, schemattrdict, yamlfile):
     schema = Schema(
         {
@@ -1065,7 +1082,7 @@ def organize_dbus_if_active():
     elif _ORGANIZE_DBUS_NAME in bus.dbus.ListActivatableNames():
         raise Exit(
             "Organize is not running (but it is dbus-activatable; use 'vula"
-            "start' to start it.)."
+            " start' to start it.)."
         )
     else:
         raise Exit("Organize dbus service is not configured")

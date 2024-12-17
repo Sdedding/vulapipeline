@@ -22,6 +22,7 @@ from .common import (
     b64_bytes,
     comma_separated_IPs,
     comma_separated_Nets,
+    sort_LL_first,
     format_byte_stats,
     int_range,
     organize_dbus_if_active,
@@ -49,7 +50,6 @@ _qrcode = None
 
 @DualUse.object()
 class Descriptor(schemattrdict, serializable):
-
     """
     Descriptors are the objects which are communicated between between publish
     and discover (via mDNS) and between discover and organize (via strings).
@@ -110,6 +110,7 @@ class Descriptor(schemattrdict, serializable):
             ),  # AllowedIPs may be set from this in the future; fixme
             'e': Flexibool,
             Optional('s'): b64_bytes.with_len(64),
+            Optional('if'): Use(str),
         }
     )
 
@@ -204,7 +205,9 @@ class Descriptor(schemattrdict, serializable):
 
     def _build_sig_buf(self: Descriptor) -> bytes:
         return " ".join(
-            "%s=%s;" % (k, v) for k, v in sorted(self.items()) if k != 's'
+            "%s=%s;" % (k, v)
+            for k, v in sorted(self.items())
+            if k != 's' and k != 'if'
         ).encode()
 
     def __str__(self):
@@ -463,9 +466,7 @@ class Peer(schemattrdict):
         return self.get('petname') or (
             latest
             if self.nicknames[self.descriptor.hostname]
-            else self.enabled_names[0]
-            if self.enabled_names
-            else "<unnamed>"
+            else self.enabled_names[0] if self.enabled_names else "<unnamed>"
         )
 
     @property
@@ -549,42 +550,56 @@ class Peer(schemattrdict):
 
     @property
     def enabled_ips(self):
-        return [ip for ip, on in self.IPv4addrs.items() if on] + [
-            ip for ip, on in self.IPv6addrs.items() if on
+        return [ip for ip, on in self.IPv6addrs.items() if on] + [
+            ip for ip, on in self.IPv4addrs.items() if on
         ]
 
     @property
     def disabled_ips(self):
-        return [ip for ip, on in self.IPv4addrs.items() if not on] + [
-            ip for ip, on in self.IPv6addrs.items() if not on
+        return [ip for ip, on in self.IPv6addrs.items() if not on] + [
+            ip for ip, on in self.IPv4addrs.items() if not on
         ]
+
+    @property
+    def primary_ip(self):
+        return next(
+            ip
+            for ip in self.enabled_ips
+            if not (ip.version == 6 and ip.is_link_local)
+        )
 
     @property
     def enabled_ips_str(self):
         return [str(ip) for ip in self.enabled_ips]
 
     @property
-    def endpoint_addr(self):
-        return self.descriptor.addrs[0]  # XXX use better "best ip" logic,
-        # allowing for disabled IPs, etc
+    def routeable_ips(self):
+        return [
+            ip
+            for ip in self.enabled_ips
+            if not (ip.version == 6 and ip.is_link_local)
+        ]
 
     @property
     def routes(self):
-        res = [
+        return [
             ip_network("%s/%s" % (ip, ip.max_prefixlen))
-            for ip in self.enabled_ips
+            for ip in self.routeable_ips
         ]
-        return res
 
     @property
-    def allowed_ips(self):
+    def _wg_allowed_ips(self):
         res = [
             ip_network("%s/%s" % (ip, ip.max_prefixlen))
-            for ip in self.enabled_ips
+            for ip in self.routeable_ips
         ]
         if self.use_as_gateway:
             res.append(ip_network("0.0.0.0/0"))  # FIXME: ipv6
-        return res
+        return list(map(str, res))
+
+    @property
+    def endpoint_addr(self):
+        return sort_LL_first(self.enabled_ips)[0]
 
     @property
     def endpoint(self):
@@ -595,7 +610,7 @@ class Peer(schemattrdict):
             public_key=str(self.descriptor.pk),
             endpoint_addr=str(self.endpoint_addr),
             endpoint_port=self.descriptor.port,
-            allowed_ips=list(map(str, self.allowed_ips)),
+            allowed_ips=self._wg_allowed_ips,
             preshared_key=ctidh_psk,
         )
 
@@ -627,7 +642,8 @@ class Peer(schemattrdict):
                     )
                 ),
                 'endpoint': self.endpoint,
-                'allowed ips': ", ".join(map(str, self.allowed_ips)),
+                'primary ip': self.primary_ip,
+                'allowed ips': ", ".join(self._wg_allowed_ips),
                 'disabled ips': ", ".join(map(str, self.disabled_ips)),
                 'latest signature': (
                     str(
@@ -663,7 +679,6 @@ class Peer(schemattrdict):
 
 
 class Peers(yamlrepr, queryable, schemadict):
-
     """
     A dictionary of peers. Note that, despite being the home of the conflict
     detection code, a Peers object can be valid (from a schema standpoint) even
@@ -854,9 +869,11 @@ class PeerCommands(object):
         queries = (
             available
             if peers == ()
-            else [peer for peer in peers if peer in available]
-            if which
-            else peers
+            else (
+                [peer for peer in peers if peer in available]
+                if which
+                else peers
+            )
         )
 
         res = []

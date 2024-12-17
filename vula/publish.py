@@ -29,6 +29,7 @@ class Publish(object):
       <interface name='local.vula.publish1.Listen'>
         <method name='listen'>
           <arg type='a{sa{ss}}' name='new_announcements' direction='in'/>
+          <arg type='as' name='ignore_ips' direction='in'/>
         </method>
       </interface>
     </node>
@@ -38,33 +39,42 @@ class Publish(object):
         self.log: Logger = getLogger()
         self.zeroconfs = {}
 
-    def listen(self, new_announcements):
+    def listen(self, new_announcements, ignore_ips):
         # First we remove all old zeroconf listeners that are not in our new
         # instructions
-        for ip, zc in list(self.zeroconfs.items()):
-            if ip not in new_announcements:
-                self.log.info("Removing old service announcement for %r", ip)
+        for iface, zc in list(self.zeroconfs.items()):
+            if iface not in new_announcements:
+                self.log.info(
+                    "Removing old service announcement for %r", iface
+                )
                 zc.close()
-                del self.zeroconfs[ip]
+                del self.zeroconfs[iface]
         # Now we add a zeroconf listener for each new IP and ServiceInfo if it
         # is not already existing, else we update the old zc object with the
         # new desc
-        for ip_addr, desc in new_announcements.items():
+        for iface, desc in new_announcements.items():
+            ignore_ips = list(comma_separated_IPs(*ignore_ips))
+            listen_IPs = [
+                str(a)
+                for a in comma_separated_IPs(desc['addrs'])
+                if a not in ignore_ips
+            ]
             self.log.debug(
-                "Starting mDNS service announcement for %r", ip_addr
+                "Starting mDNS service announcement for %r with listen_IPs %r (ignoring %r)",
+                iface,
+                listen_IPs,
+                ignore_ips,
             )
             name: str = node() + "." + _LABEL
             service_info: ServiceInfo = ServiceInfo(
                 _LABEL,
                 name=name,
-                addresses=[
-                    ip_address(ip).packed for ip in desc['addrs'].split(',')
-                ],
+                addresses=listen_IPs,
                 port=int(desc['port']),
                 properties=desc,
                 server=desc['hostname'],
             )
-            zeroconf = self.zeroconfs.get(ip_addr)
+            zeroconf = self.zeroconfs.get(iface)
             if zeroconf:
                 # Do update dance
                 self.log.debug("Updating vula service: %s", service_info)
@@ -72,8 +82,9 @@ class Publish(object):
                 self.log.debug("Updating vula service.")
 
             else:
-                zeroconf = self.zeroconfs[ip_addr] = Zeroconf(
-                    interfaces=list(map(str, comma_separated_IPs(ip_addr)))
+                zeroconf = self.zeroconfs[iface] = Zeroconf(
+                    # note that the "interfaces" argument to zeroconf is a list of IPs
+                    interfaces=listen_IPs
                 )
                 self.log.debug("Registering vula service: %s", service_info)
                 try:
