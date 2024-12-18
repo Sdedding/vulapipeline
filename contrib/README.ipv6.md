@@ -1,3 +1,11 @@
+TODO:
+
+* test on v4-only system. at the least, binding the ULA will fail. what else?
+* subnets_forbidden only blocks smaller system_state subnets from being current_subnets, it does not prevent /32 routes within a forbidden_subnet from being routed to. it should.
+* test on multi-homed system. we probably need descriptor origin tracking - so we can set the fe80 endpoint with link specifier? we can also use it to constrain subnets_allowed
+* review and fix the 8 things in this README (6 default route related, 2 unused)
+* treat fdff differently
+
 The below report was written by BFH students in 2022 to assess the state of
 IPv6 support in vula and identify what needs to be fixed.
 
