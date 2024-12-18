@@ -144,10 +144,6 @@ class OrganizeState(Engine, yamlrepr_hl):
         prefs=Prefs.default, system_state={}, peers={}, event_log=[]
     )
 
-    restricted = [
-        "peers.*.descriptor"
-    ]  # FIXME: implement filter for 1-op direct events?
-
     def _check_freshness(self, descriptor):
         # FIXME: check dt and vf here
         return True
