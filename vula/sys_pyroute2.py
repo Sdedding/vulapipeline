@@ -165,7 +165,6 @@ class Sys(object):
 
     def addr_add(self, addr, dev, mask, dryrun=False):
         res = []
-        oif = self.ipr.link_lookup(ifname=dev)[0]
         if not [
             a
             for _addr, a, _iface in self._get_all_addrs()
@@ -173,6 +172,7 @@ class Sys(object):
         ]:
             res.append(f"ip addr add {addr}/{mask} dev {dev}")
             if not dryrun:
+                oif = self.ipr.link_lookup(ifname=dev)[0]
                 self.log.info("[#] %s", str(res[-1]))
                 self.ipr.addr("add", index=oif, address=str(addr), mask=mask)
         return res
