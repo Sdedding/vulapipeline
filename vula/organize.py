@@ -371,7 +371,7 @@ class OrganizeState(Engine, yamlrepr_hl):
             self._SET(('peers', peer.id, 'nicknames', desc.hostname), True)
 
         if set(
-            a for a in desc.addrs if a in system_state.current_subnets
+            a for a in desc.addrs if any(a in s for s in system_state.current_subnets)
         ) & set(self.system_state.gateways):
             # BUG: this will fail (new peer won't be accepted) if the new peer
             # has a gateway IP and there is already another gateway. it fails
