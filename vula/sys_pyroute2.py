@@ -41,7 +41,7 @@ class Sys(object):
 
     def get_stats(self):
         """
-        Get the statistics
+        Get wireguard interface statistics
 
         >>> s = Sys(None)
         >>> type(s.get_stats())
@@ -76,13 +76,13 @@ class Sys(object):
                 'RTM_DELROUTE',
                 'RTM_NEWROUTE',
             ]:
-                self.log.debug("acting on netlink message: %r", msg)
-                self.get_new_system_state()
+                self.log.info("checking system state because of %r netlink event", event)
+                self.get_new_system_state(f"{event} netlink event")
             elif event == 'RTM_NEWNEIGH':
                 # this happens often, so we don't even debug log it
                 pass
             else:
-                self.log.debug(
+                self.log.info(
                     "ignoring netlink message type %r (%s bytes)",
                     event,
                     len(str(msg)),
