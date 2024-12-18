@@ -13,6 +13,8 @@ from nacl.exceptions import BadSignatureError
 from nacl.signing import SigningKey, VerifyKey
 from schema import And, Optional, Regex, Schema, Use
 
+from .constants import _ULA_SUBNET
+
 from .common import (
     Bug,
     ConsistencyError,
@@ -599,7 +601,7 @@ class Peer(schemattrdict):
 
     @property
     def endpoint_addr(self):
-        return sort_LL_first(self.enabled_ips)[0]
+        return sort_LL_first(i for i in self.enabled_ips if i not in _ULA_SUBNET)[0]
 
     @property
     def endpoint(self):
