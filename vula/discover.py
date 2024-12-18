@@ -179,7 +179,7 @@ class Discover(object):
 
         discover = cls()
 
-        discover.callbacks.append(lambda d: discover.log.info("%s", d))
+        discover.callbacks.append(lambda d: discover.log.debug("%s", d))
 
         if use_dbus:
             discover.log.debug("dbus enabled")
