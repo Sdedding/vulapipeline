@@ -657,15 +657,17 @@ class Organize(attrdict):
         ).sign(self._keys.vk_Ed25519_sec_key)
 
     @DualUse.method()
-    def get_new_system_state(self):
+    def get_new_system_state(self, reason=None):
+        res = []
         old_state = self.state.system_state.copy()
         new_system_state = SystemState.read(self)
-        res = self.state.event_NEW_SYSTEM_STATE(new_system_state)
-        if res.error:
-            click.exit("Fatal unable to handle new system state: %r" % (res,))
         if old_state == new_system_state:
-            self.log.info("system state unchanged")
+            self.log.info(f"checked system state because {reason}; no changes")
         else:
+            self.log.info(f"checked system state because {reason}; found changes, running sync/repair")
+            res = self.state.event_NEW_SYSTEM_STATE(new_system_state)
+            if res.error:
+                raise Exception("Fatal unable to handle new system state: %r" % (res,))
             # FIXME: ensure that triggers do everything necessary, and then
             # remove this full repair sync call here:
             self.sync()

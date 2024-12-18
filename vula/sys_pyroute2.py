@@ -147,8 +147,8 @@ class Sys(object):
 
         return current_subnets, current_interfaces, gateways
 
-    def get_new_system_state(self):
-        return self.organize.get_new_system_state()
+    def get_new_system_state(self, reason=None):
+        return self.organize.get_new_system_state(reason)
 
     def sync_interface(self, dryrun=False):
         return self.wgi.sync_interface(
