@@ -68,6 +68,7 @@ class VerifyCommands(object):
 
     @DualUse.method()
     def my_vk(self):
+        "Display QR code of your identity key"
         click.echo(green(bold("Your VK is: ")) + str(self.vk))
         qr = qrcode.QRCode()
         qr.add_data(data="local.vula:vk:" + str(self.vk))
@@ -75,18 +76,13 @@ class VerifyCommands(object):
 
     @DualUse.method()
     def my_descriptor(self):
+        "Display text and QR code of your descriptor(s)"
         for ip, desc in self.my_descriptors.items():
             click.echo(green(bold("Descriptor for {}: ".format(ip))))
             qr = qrcode.QRCode()
             qr.add_data(data="local.vula:desc:" + str(desc))
             qr.print_ascii()
             click.echo(repr(str(desc)))
-
-    @DualUse.method()
-    @click.argument('name', type=str)
-    def against(self, name):
-        # take name vk and vk (self), hash with sha256
-        pass
 
     @DualUse.method()
     @click.option('-w', '--width', default=640, show_default=True)
@@ -98,6 +94,8 @@ class VerifyCommands(object):
     @click.argument('hostname', type=str, required=True)
     def scan(self, width, height, camera, hostname, debug):
         """
+        Scan a QR code
+
         We expect a string object that roughly looks like the following three
         things:
 
@@ -172,6 +170,7 @@ class VerifyCommands(object):
         '-v', '--verbose', default=False, is_flag=True, show_default=True
     )
     def speak(self, verbose):
+        "Play audio for other peer to listen to"
         vk = str(self.vk)
         if verbose:
             click.echo(f"Sending vk: {vk}")
@@ -185,6 +184,7 @@ class VerifyCommands(object):
         '-v', '--verbose', default=False, is_flag=True, show_default=True
     )
     def listen(self, hostname, verbose):
+        "Listen for audio from other peer"
         try:
             known_vk = self.organize.get_vk_by_name(hostname)
         except GLib.Error:

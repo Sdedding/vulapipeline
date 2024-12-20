@@ -65,27 +65,6 @@ class Descriptor(schemattrdict, serializable):
     ... "SbVTYjzFGZSCO6n80SRaR+BIeOCg== --vf 1606276812 --vk 90Y5JGEjoklSDw51ffoHYXhWs49TTnCQ/D5yB"
     ... "buf3Zg= valid".split()))
     True
-
-    For testing purposes, one could run the same command on the commandline like so:
-    vula -d peer.Descriptor --addrs 10.168.128.160 --c
-    vdDpRSGtsqvui8dox0iBq0SSp/zXSEU2dx5s5x+qcquSp0oIWgDuqJw50e9wrIuGub+SXzU0s5EIRH49QmNYDw== --dt
-    86400 --e false --hostname wg-mdns-test3.local.  --pk
-    EqcQ5gYxzGtzg7B4xi83kLyfuSMp8Kv3cmAJMs12nDM= --port 5354 --r '' --s
-    T6htsKgwCp5MAXjPiWxtVkccg+K2CePsVa7uyUgxE2ouYKXg2qNL+0ut3sSbVTYjzFGZSCO6n80SRaR+BIeOCg== --vf
-    1606276812 --vk 90Y5JGEjoklSDw51ffoHYXhWs49TTnCQ/D5yBbuf3Zg= valid
-
-    ... IPv6
-    Unfortunately, this test can't be adapted to IPv6 as it's not possible to get a valid signature.
-
-    For testing purposes, one could run the same command on the commandline like so:
-    vula -d peer.Descriptor --addrs fe80::377b:d17:9b74:1b91 --c
-    vdDpRSGtsqvui8dox0iBq0SSp/zXSEU2dx5s5x+qcquSp0oIWgDuqJw50e9wrIuGub+SXzU0s5EIRH49QmNYDw== --dt
-    86400 --e false --hostname wg-mdns-test3.local.  --pk
-    EqcQ5gYxzGtzg7B4xi83kLyfuSMp8Kv3cmAJMs12nDM= --port 5354 --r '' --s
-    T6htsKgwCp5MAXjPiWxtVkccg+K2CePsVa7uyUgxE2ouYKXg2qNL+0ut3sSbVTYjzFGZSCO6n80SRaR+BIeOCg== --vf
-    1606276812 --vk 90Y5JGEjoklSDw51ffoHYXhWs49TTnCQ/D5yBbuf3Zg= valid
-
-    ... but this is of course not the correct way to use this object.
     """
 
     schema = Schema(
@@ -601,7 +580,9 @@ class Peer(schemattrdict):
 
     @property
     def endpoint_addr(self):
-        return sort_LL_first(i for i in self.enabled_ips if i not in _ULA_SUBNET)[0]
+        return sort_LL_first(
+            i for i in self.enabled_ips if i not in _ULA_SUBNET
+        )[0]
 
     @property
     def endpoint(self):

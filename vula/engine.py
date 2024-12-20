@@ -126,6 +126,7 @@ class Engine(schemattrdict, yamlfile):
         self.result = None
         self.next_state = None
         self.save = lambda *a: None
+        self.info_log = lambda *a: None
         self.debug_log = lambda *a: None
         self.trigger_target = None
         super(Engine, self).__init__(*a, **kw)

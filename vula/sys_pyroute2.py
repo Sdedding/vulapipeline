@@ -76,7 +76,6 @@ class Sys(object):
                 'RTM_DELROUTE',
                 'RTM_NEWROUTE',
             ]:
-                self.log.info("checking system state because of %r netlink event", event)
                 self.get_new_system_state(f"{event} netlink event")
             elif event == 'RTM_NEWNEIGH':
                 # this happens often, so we don't even debug log it

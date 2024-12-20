@@ -339,6 +339,7 @@ class OrganizeState(Engine, yamlrepr_hl):
         self._update_peer(peer, desc)
 
     def _update_peer(self, peer, desc=None, system_state=None):
+        self.info_log("calling _update_peer for %s", peer.name_and_id)
         if desc is None:
             desc = peer.descriptor
         if system_state is None:
@@ -588,6 +589,7 @@ class Organize(attrdict):
         self._state: OrganizeState = self._load_state()
         self._state.trigger_target = self.sys
         self._state.save = self.save
+        self._state.info_log = self.log.info
         self._state.debug_log = self.log.debug
         self._latest_descriptors = {}
 
