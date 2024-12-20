@@ -5,7 +5,7 @@ import time
 from base64 import b64encode
 from datetime import timedelta
 from io import StringIO
-from ipaddress import IPv4Address, IPv6Address, ip_network
+from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network
 from typing import List
 
 import click
@@ -696,6 +696,7 @@ class Peers(yamlrepr, queryable, schemadict):
     )
 
     def with_hostname(self: Peers, name: str):
+        "Return peer with given hostname (among all of its enabled names)"
         res = self.limit(enabled=True).by('nicknames').get(name, [])
         if len(res) > 1:
             raise Bug(
@@ -709,10 +710,9 @@ class Peers(yamlrepr, queryable, schemadict):
         return res[0]
 
     def with_ip(self, ip):
-        # IPv6 analysis: not ipv6 ready
-        # Please enhance this function to support ipv6
-        ip = IPv4Address(ip)
-        res = self.limit(enabled=True).by('IPv4addrs').get(ip, [])
+        "Return peer with given IP address"
+        ip = ip_address(ip)
+        res = self.limit(enabled=True).by('enabled_ips').get(ip, [])
         if len(res) > 1:
             raise ConsistencyError(
                 # this should also not be possible, because the state logic

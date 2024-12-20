@@ -684,9 +684,10 @@ class wg(object):
             res.append(dev.set(**kwargss.pop(0)))
         for peer in kwargss:
             if 'endpoint' in peer:
-                peer['endpoint_addr'], peer['endpoint_port'] = peer[
+                peer['endpoint_addr'], _, peer['endpoint_port'] = peer[
                     'endpoint'
-                ].split(':')
+                ].rpartition(':')
+                peer['endpoint_addr'] = peer['endpoint_addr'].strip("[]")
                 del peer['endpoint']
             peer = PeerConfig(peer)._dict()
             res.append(dev.apply_peerconfig(peer))

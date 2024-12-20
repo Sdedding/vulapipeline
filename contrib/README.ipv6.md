@@ -1,10 +1,11 @@
 TODO:
 
-* test on v4-only system. at the least, binding the ULA will fail. what else?
+* treat fdff differently somehow, maybe don't put it in enabled_ips?
+* test on hard v4-only system (eg, ipv6 disabled in kernel, so we cannot bind our ULA to the vula interface). at the least, binding the ULA will fail currently. but what else?
 * subnets_forbidden only blocks smaller system_state subnets from being current_subnets, it does not prevent /32 routes within a forbidden_subnet from being routed to. it should.
 * test on multi-homed system. we probably need descriptor origin tracking - so we can set the fe80 endpoint with link specifier? we can also use it to constrain subnets_allowed
-* review and fix the 8 things in this README (6 default route related, 2 unused)
-* treat fdff differently
+* Implement default route encryption (requires fixing the six things mentioned
+in the report below).
 
 The below report was written by BFH students in 2022 to assess the state of
 IPv6 support in vula and identify what needs to be fixed.
@@ -12,23 +13,15 @@ IPv6 support in vula and identify what needs to be fixed.
 At the time, there was some IPv6 support in some parts of vula's code but it
 had never been tested as was incomplete. Since then, IPv6 support has been
 improved and tested somewhat, and is now enabled in the podman test environment
-(which now uses IPv6 ULA addresses) for LAN traffic.
+(which now advertizes an IPv6 ULA address bound to the vula interface, and uses
+fe80 addresses for wireguard endpoints) for LAN traffic.
 
-Default route encryption over v6 remains non-working at this time.
+Default route encryption over v6 remains unfinished at this time.
 
-The eight places in the vula source code which this report identifies as
-needing to be updated for v6 compatibility remain unfixed, however. Six of them
-are relevant to using vula for default route encryption on a v6 network, while
-the other two (`peer.py` and `wg.py`) both only affect code which was used
-during development but is not used in practice.
+The report below identified eight places in the code which were explicitly
+IPv4-only; two of them have been fixed. The remaining six are relevant to
+default route encryption and are not yet fixed.
 
-Next steps for V6:
-
-* Additional testing with ULA addresses, including adding a V4-only peer to the
-network.
-
-* Implement default route encryption (requires fixing the six things mentioned
-in the report below).
 
 ***
 
@@ -112,11 +105,11 @@ These problems have surfaced though:
 | constants.py  | IPv4\_GW\_ROUTES             | IPv4 specific constant                                                 |
 | organize.py   | action\_ADJUST\_TO\_NEW\_SYSTEM\_STATE | Usage of IPv4 only constant.                                           |
 | organize.py   |  action\_REMOVE\_PEER            | Usage of IPv4 only constant.                                           |
-| peer.py       | Peers.with_ip                 | Usage of IPv4Address data type                                         |
+| peer.py (fixed) | Peers.with_ip                 | Usage of IPv4Address data type                                         |
 | prefs.py      | default                      | Hardcoded IPv4 addresses.                                              |
 | syspyroute.py | sync\_peer                     | Usage of IPv4 only constant.                                           |
 | syspyroute.py | remove\_unknown                | Hardcoded IPv4 addresses.                                              |
-| wg.py         | set                          | IPv6 incompatible string splitting of IP and port (splitting with ':') |
+| wg.py (fixed) | set                          | IPv6 incompatible string splitting of IP and port (splitting with ':') |
 
 As a result, according commentary was added to the above functions in commit 633678d2023fe1bc2531ac00c44887245a01cf5f
 
