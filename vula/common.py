@@ -9,6 +9,8 @@ import json
 import os
 import pdb
 import re
+import socket
+import errno
 from base64 import b64decode, b64encode
 from ipaddress import ip_address, ip_network
 from logging import Logger, getLogger
@@ -1174,6 +1176,31 @@ def escape_ansi(line: str) -> str:
     ansi_escape = re.compile(r"(?:\x1B[@-_]|[\x80-\x9F])[0-?]*[ -/]*[@-~]")
     return ansi_escape.sub('', line)
 
+def bind_to_check_if_v6_enabled() -> bool:
+    """
+    Return bool indicating if ipv6 support is enabled on this system.
+
+    This function is based on code found here:
+    https://stackoverflow.com/questions/66246308/detect-if-ipv6-is-supported-os-agnostic-no-external-program
+    """
+    _ADDR_NOT_AVAIL = {
+        errno.EADDRNOTAVAIL, # ipv6 module loaded, but ipv6 disabled
+        errno.EAFNOSUPPORT   # ipv6 module not loaded
+    }
+
+    if not socket.has_ipv6:
+        # If Python's socket library has no support for IPv6, then the
+        # question is moot as we can't use IPv6 anyways.
+        return False
+    try:
+        with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as sock:
+            sock.bind(("::1", 0))
+        return True
+    except OSError as e:
+        if e.errno in _ADDR_NOT_AVAIL:
+            return False
+        # Other errors should be inspected
+        raise
 
 if __name__ == "__main__":
     import doctest

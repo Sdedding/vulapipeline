@@ -35,6 +35,7 @@ from .common import (
     sort_LL_first,
     yamlrepr,
     yamlrepr_hl,
+    bind_to_check_if_v6_enabled,
 )
 from .configure import Configure
 from .constants import (
@@ -592,6 +593,7 @@ class Organize(attrdict):
         self._state.info_log = self.log.info
         self._state.debug_log = self.log.debug
         self._latest_descriptors = {}
+        self._ipv6_enabled = bind_to_check_if_v6_enabled()
 
         if self.prefs.primary_ip in (
             None,
