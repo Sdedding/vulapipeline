@@ -8,7 +8,6 @@ steps:
     commands:
       - export CI=true
       - ./misc/install-debian-deps.sh
-      - ./misc/install-highctidh.sh
       - make check
 
   # Override default CI env variable for now (see https://github.com/pypa/pipenv/issues/5554)
@@ -30,7 +29,6 @@ steps:
     commands:
       - export CI=true
       - ./misc/install-debian-deps.sh
-      - ./misc/install-highctidh.sh
       - make sast-analysis
 
   # Override default CI env variable for now (see https://github.com/pypa/pipenv/issues/5554)
@@ -40,7 +38,6 @@ steps:
     commands:
       - export CI=true
       - ./misc/install-debian-deps.sh
-      - ./misc/install-highctidh.sh
       - apt install -y --no-install-recommends xvfb xauth
       - xvfb-run -- pipenv run pytest --cov
   
