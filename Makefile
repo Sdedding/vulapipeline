@@ -52,7 +52,7 @@ deb: ./dist/${DEB_NAME}
 #	python3 setup.py --command-packages=stdeb.command bdist_rpm
 
 pytest-coverage:
-	pipenv run pytest --cov --cov-report xml --cov-report html --cov-report term
+	pytest --cov --cov-report xml --cov-report html --cov-report term
 
 clean:
 	-rm -rf build/ dist/
@@ -65,29 +65,29 @@ check-format: check-black
 check: check-format flake8
 
 isort:
-	pipenv run isort --atomic $(FOLDER)
+	isort --atomic $(FOLDER)
 
 check-isort:
-	pipenv run isort -c -v $(FOLDER)
+	isort -c -v $(FOLDER)
 
 black:
-	pipenv run black $(FOLDER)
+	black $(FOLDER)
 
 check-black:
-	pipenv run black --check $(FOLDER)
+	black --check $(FOLDER)
 
 flake8:
-	pipenv run flake8 $(FOLDER)
+	flake8 $(FOLDER)
 
 mypy:
-	pipenv run mypy
+	mypy
 
 pytest:
-	pipenv run pytest
+	pytest
 
 sast-analysis:
-	pipenv run bandit -r -ll -s B104 -f txt -o ./report-bandit.txt ./vula
-	pipenv run semgrep --json -o ./report-semgrep.txt --config="p/security-audit" ./vula/
+	bandit -r -ll -s B104 -f txt -o ./report-bandit.txt ./vula
+	semgrep --json -o ./report-semgrep.txt --config="p/security-audit" ./vula/
 
 deps-graphs:
 	# this requires pipenv, pydeps, graphviz, ...
