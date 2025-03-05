@@ -6,7 +6,7 @@ steps:
   check:
     image: python:3.10-bookworm
     commands:
-      - true
+      - "true"
 #      - export CI=true
 #      - ./misc/install-debian-deps.sh
 #      - ./misc/install-highctidh.sh
