@@ -19,7 +19,7 @@ steps:
       - ./misc/install-debian-deps.sh
       - ./misc/install-highctidh.sh
       - apt install -y --no-install-recommends xvfb xauth
-      - xvfb-run -- pipenv run pytest -v 
+      - xvfb-run -- pytest -v 
   
 
   # Override default CI env variable for now (see https://github.com/pypa/pipenv/issues/5554)
@@ -39,7 +39,7 @@ steps:
       - export CI=true
       - ./misc/install-debian-deps.sh
       - apt install -y --no-install-recommends xvfb xauth
-      - xvfb-run -- pipenv run pytest --cov
+      - xvfb-run -- pytest --cov
   
   # This job currently fails in a woodpecker pipeline because it seems that codberg-ci/woodpecker does not support
   # a "podman inside docker container" setup. Will raise a `cannot clone: Operation not permitted` error.
