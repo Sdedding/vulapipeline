@@ -4,7 +4,7 @@ steps:
 
   # Override default CI env variable for now (see https://github.com/pypa/pipenv/issues/5554)
   check:
-    image: python:3.10-bookworm
+    image: python:3.11-bookworm
     commands:
       - "true"
 #      - export CI=true
@@ -19,9 +19,9 @@ steps:
     commands:
       - export CI=true
       - ./misc/install-debian-deps.sh
-      - pip install highctidh
 #      - ./misc/install-highctidh.sh
       - apt install -y --no-install-recommends xvfb xauth pipenv
+      - pipenv install -v highctidh
       - xvfb-run -- pipenv run pytest -v 
   
 
