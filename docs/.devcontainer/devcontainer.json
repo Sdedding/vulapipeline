@@ -1,0 +1,75 @@
+{
+    "name": "BFH LaTeX CI",
+    "image": "registry.gitlab.ti.bfh.ch/bfh-latex/registry/vscode:2.2.2",
+    
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "james-yu.latex-workshop",
+                "ban.spellright",
+                "valentjn.vscode-ltex"
+            ],
+            "settings": {
+                "latex-workshop.latex.autoBuild.run": "onSave",
+                "latex-workshop.latex.outDir": "%DIR%/_build",
+                "latex-workshop.latex.recipe.default": "lastUsed",
+                "latex-workshop.latex.tools": [
+                    {
+                        "name": "latexmkrc",
+                        "command": "latexmk",
+                        "args": [
+                            "%DOC%"
+                        ]
+                    },
+                    {
+                        "name": "lualatexmk",
+                        "command": "latexmk",
+                        "args": [
+                            "-synctex=1",
+                            "-interaction=nonstopmode",
+                            "-file-line-error",
+                            "-lualatex",
+                            "-outdir=%OUTDIR%",
+                            "--shell-escape",
+                            "%DOC%"
+                        ]
+                    },
+                    {
+                        "name": "lualatex_success_mkdir",
+                        "command": "mkdir",
+                        "args": [
+                            "-p",
+                            "_output"
+                        ]
+                    },
+                    {
+                        "name": "lualatex_success_mv",
+                        "command": "mv",
+                        "args": [
+                            "%OUTDIR%/%DOCFILE%.pdf",
+                            "_output" 
+                        ]
+                    }
+                ],
+                "latex-workshop.latex.recipes": [
+                    {
+                        "name": "latexmk (latexmkrc)",
+                        "tools": [
+                            "latexmkrc"
+                        ]
+                    },
+                    {
+                        "name": "latexmk (lualatex)",
+                        "tools": [
+                            "lualatexmk",
+                            "lualatex_success_mkdir",
+                            "lualatex_success_mv"
+                        ]
+                    }
+                ]
+            }
+        }
+    },
+ 
+    "remoteUser": "vscode"
+ }
