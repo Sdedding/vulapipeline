@@ -1,9 +1,10 @@
 export PIPENV_VERBOSITY=-1
 export PYTHONWARNINGS=ignore
-VERSION := $(shell cat vula/__version__.py |cut -f 2 -d'"')
+VERSION := $(shell cat vula/__version__.py | cut -f 2 -d'"')
 ARCH := $(shell uname -m)
-TGZ_NAME := vula-${VERSION}.tar.gz
-DEB_NAME := python3-vula_${VERSION}-1_all.deb
+# Build tarball name using Debian naming convention
+TGZ_NAME := vula_$(VERSION).orig.tar.gz
+DEB_NAME := python3-vula_$(VERSION)-1_all.deb
 RPM_NAME := vula-$(VERSION)-1.noarch.rpm
 FOLDER = vula test podman
 PYBUILD_NAME := vula
@@ -16,14 +17,13 @@ DEB_BUILD_OPTIONS=nocheck
 	sast-analysis test wheel
 
 version:
-	echo "vula ${VERSION} on ${ARCH}"
+	echo "vula $(VERSION) on $(ARCH)"
 
 ./vula/locale/en_US/LC_MESSAGES/ui.mo: ./vula/locale/en_US/LC_MESSAGES/ui.po
 	python3 setup.py compile_catalog --directory vula/locale --locale de_DE --domain ui
 	python3 setup.py compile_catalog --directory vula/locale --locale de_DE --domain ui.view
 	python3 setup.py compile_catalog --directory vula/locale --locale en_US --domain ui
 	python3 setup.py compile_catalog --directory vula/locale --locale en_US --domain ui.view
-
 
 # This requires `apt install python3-build python3-venv`
 wheel:
@@ -34,21 +34,26 @@ pypi-upload:
 	python3 -m twine check dist/*$(VERSION)*
 	python3 -m twine upload --repository pypi dist/*$(VERSION)*
 
-./dist/${TGZ_NAME}: vula vula/*py vula/frontend/*py vula/frontend/view/*py configs configs/* configs/*/* setup.py ./vula/locale/en_US/LC_MESSAGES/ui.mo
-	python3 -m build
+./dist/$(TGZ_NAME): vula vula/*py vula/frontend/*py vula/frontend/view/*py configs configs/* configs/*/* setup.py ./vula/locale/en_US/LC_MESSAGES/ui.mo
+	python3 -m build && mv dist/vula-$(VERSION).tar.gz dist/$(TGZ_NAME)
 
-deb: ./dist/${DEB_NAME}
+# Create debian/source/format if it doesn't exist
+debian/source/format:
+	mkdir -p debian/source && echo "3.0 (quilt)" > debian/source/format
 
-./dist/${DEB_NAME}: ./dist/${TGZ_NAME}
-	cd dist && rm -rvf "vula-${VERSION}" && tar xf ${TGZ_NAME} \
-        && cd vula-${VERSION} && cp -rvp ../../debian ./debian && \
+# The deb target now depends on debian/source/format so that dpkg-source uses the proper format.
+deb: debian/source/format ./dist/$(DEB_NAME)
+
+./dist/$(DEB_NAME): ./dist/$(TGZ_NAME)
+	cd dist && rm -rvf "vula-$(VERSION)" && tar xf $(TGZ_NAME) \
+        && cd vula-$(VERSION) && cp -rvp ../../debian ./debian && \
         DEB_BUILD_OPTIONS=nocheck dpkg-buildpackage -rfakeroot -uc -us --sanitize-env && \
-		cd .. && rm -rf vula-${VERSION}
+		cd .. && rm -rf vula-$(VERSION)
 
 # stdeb is EOL so we don't have a way to build an RPM currently.
-#rpm: ./dist/${RPM_NAME}
+#rpm: ./dist/$(RPM_NAME)
 #
-#./dist/${RPM_NAME}: vula vula/*py vula/frontend/*py vula/frontend/view/*py configs configs/* configs/*/* setup.py
+#./dist/$(RPM_NAME): vula vula/*py vula/frontend/*py vula/frontend/view/*py configs configs/* configs/*/* setup.py
 #	python3 setup.py --command-packages=stdeb.command bdist_rpm
 
 pytest-coverage:
@@ -90,7 +95,7 @@ sast-analysis:
 	pipenv run semgrep --json -o ./report-semgrep.txt --config="p/security-audit" ./vula/
 
 deps-graphs:
-	# this requires pipenv, pydeps, graphviz, ...
+	# This requires pipenv, pydeps, graphviz, etc.
 	pipenv run pydeps --pylib-all --cluster --max-cluster-size 10 -o contrib/deps-graphs/precisely_linked.svg vula
 	pipenv run pydeps --pylib-all --cluster --keep-target-cluster --max-cluster-size 10 -o contrib/deps-graphs/all_clustered.svg vula
 	pipenv run pydeps --pylib-all --show-deps vula -o contrib/deps-graphs/unorganized.svg > contrib/deps-graphs/vula_deps.json
@@ -114,7 +119,6 @@ fuzz:
 	python contrib/fuzzing/vulaFuzzer.py
 
 deb-and-wheel-in-podman:
-	echo "Building ${VERSION}"
+	echo "Building $(VERSION)"
 	podman run -v `pwd`:/vula --workdir /vula --rm -it debian:bookworm bash -c '/vula/misc/install-debian-deps.sh && make wheel && make deb && make version'
-	echo "Built ${VERSION} for ${ARCH}"
-
+	echo "Built $(VERSION) for $(ARCH)"

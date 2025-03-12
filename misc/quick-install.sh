@@ -34,7 +34,11 @@ export CC=gcc;
 cd vula_libnss && make clean && make deb; cd ..;
 export CC=clang;
 cd highctidh && make clean && make deb; cd ..;
-echo "Install the following Debian packages:";
+
+echo "Debian packages generated in the following directories:";
 ls highctidh/dist/*.deb;
 ls vula_libnss/dist/*.deb;
 ls dist/*.deb;
+
+echo "Installing deb packages..."
+sudo dpkg -i highctidh/dist/*.deb vula_libnss/dist/*.deb dist/*.deb
