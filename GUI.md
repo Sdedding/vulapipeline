@@ -13,7 +13,7 @@ Testing tkinter Applications is not an easy task. Neither unit test nor doctest 
 The most appropriate testing strategy would probably be functional testing with integration tests. That could be a project in the future.
 
 # Localization
-Currently the UI is not localized. There are some translations in `vula/locale`. But those are not used and do not work.
+Currently, the UI is not localized. There are some translations in `vula/locale`. But those are not used and do not work.
 Because the buttons are implemented using images to achieve a better design the localization there is tricky.
 Either we create a button for each language or we use normal buttons for buttons with text. Those buttons with only an icon are not a problem. 
 Implementing localization and addressing this issue with the buttons would be a good follow-up project.
