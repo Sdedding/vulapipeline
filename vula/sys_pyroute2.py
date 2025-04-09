@@ -13,10 +13,11 @@ SCOPES = {0: 'global', 253: 'static'}
 
 class Sys(object):
     """
-    This  object provides all of the pyroute2-based system integration.
-    Organize (and everything else) should only call pyroute2 via this object.
+    This object provides all of the pyroute2-based system integration;
+    organize (and everything else) should only call pyroute2 via this
+    object.
 
-    This is currently our only implementation of our still-evolving Sys
+    This is currently the only implementation of our still-evolving Sys
     interface. We should reduce the number of public methods here to a minimum,
     and later we can reimplement this object using other means on other
     platforms.
@@ -41,7 +42,7 @@ class Sys(object):
 
     def get_stats(self):
         """
-        Get the statistics
+        Get wireguard interface statistics
 
         >>> s = Sys(None)
         >>> type(s.get_stats())
@@ -53,7 +54,7 @@ class Sys(object):
 
     def stop_monitor(self) -> None:
         """
-        Stops the monitor
+        Stops the monitor.
         """
         self._stop_monitor = True
 
@@ -96,6 +97,11 @@ class Sys(object):
     def _get_system_state(self):
         "WIP"
 
+        links = {
+            L['index']: dict(L['attrs'])['IFLA_IFNAME']
+            for L in self.ipr.get_links()
+        }
+
         addrs = self.ipr.get_addr()
 
         gateways = list(
@@ -107,10 +113,11 @@ class Sys(object):
         )
 
         current_subnets = {}
+        current_interfaces = {}
 
         for a in addrs:
             addr = ip_address(dict(a['attrs'])['IFA_ADDRESS'])
-            iface = dict(a['attrs']).get('IFA_LABEL', '')
+            iface = links[a['index']]
             this_subnet = ip_network(
                 "%s/%s" % (addr, a['prefixlen']), strict=False
             )
@@ -130,8 +137,9 @@ class Sys(object):
                 for subnet in self.organize.prefs.subnets_forbidden
             ):
                 current_subnets.setdefault(this_subnet, []).append(addr)
+                current_interfaces.setdefault(iface, []).append(addr)
 
-        return current_subnets, gateways
+        return current_subnets, current_interfaces, gateways
 
     def get_new_system_state(self):
         return self.organize.get_new_system_state()
@@ -225,7 +233,7 @@ class Sys(object):
 
     def remove_routes(self, dests, table=None, dev=None, dryrun=False):
         """
-        Idempotently remove route(s)
+        Idempotently remove route(s).
 
         Dests is a list of cidr notation strings.
 
@@ -378,7 +386,7 @@ class Sys(object):
 
     def sync_routes(self, dests, table, dryrun=False):
         """
-        Takes a list of cidr notation dests and a routing table, and ensures
+        Takes a list of CIDR notation dests and a routing table, and ensures
         those routes are configured there. Returns a string.
         """
         res = []

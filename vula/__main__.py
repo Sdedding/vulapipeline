@@ -3,6 +3,7 @@ import sys
 from logging import DEBUG, INFO, WARN, basicConfig, getLogger  # noqa: F401
 
 import click
+import dbus
 import pydbus
 
 from . import (  # noqa: F40
@@ -57,7 +58,7 @@ def main(ctx, log_level, *args, **kwargs):
     """
     vula tools
 
-    With no arguments, runs "peer show"
+    With no arguments, runs "peer show".
     """
 
     if not log_level:
@@ -94,6 +95,20 @@ def start(quick):
     )
 
 
+@main.command()
+def stop():
+    """Stop vula
+
+    This is a shortcut for systemctl stop vula.slice
+    """
+    return dbus.Interface(
+        dbus.SystemBus().get_object(
+            "org.freedesktop.systemd1", "/org/freedesktop/systemd1"
+        ),
+        "org.freedesktop.systemd1.Manager",
+    ).StopUnit('vula.slice', 'replace')
+
+
 @main.command(short_help="Starts the graphical user interface")
 def gui():
     ui.main()
@@ -118,7 +133,9 @@ def repair(dry_run):
 
 @main.command()
 def rediscover():
-    "Tell organize to ask discover for more peers"
+    """
+    Tell organize to ask discover for more peers.
+    """
     organize = common.organize_dbus_if_active()  # noqa: F811
     click.echo('Discovering on ' + organize.rediscover())
 
