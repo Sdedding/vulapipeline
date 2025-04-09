@@ -7,10 +7,10 @@
  a PSK on a pair-wise basis.
 
  The output of this program may be written to a pipe, a log file, a unix
- socket, or any other place. It should run with the lowest possible privileges
- possible. The output is not filtered and so adversaries may attempt to inject
- unreasonable data. Care should be taken that the data should only be used
- after it has been verified.
+ socket, or any other place. It should run with the lowest possible privileges.
+ The output is not filtered and so adversaries may attempt to inject
+ unreasonable data. Care should be taken that the data is used only after it
+ has been verified.
 """
 
 import hashlib
@@ -19,7 +19,7 @@ import sys
 
 from base64 import b64decode
 import click
-from typing import Any, Callable, Generator, List, Optional, Tuple, Union
+from typing import Any, Callable, List, Optional, Tuple
 from types import ModuleType
 import pydbus
 import yaml
@@ -28,7 +28,7 @@ from gi.repository import GLib
 
 try:
     cv2: Optional[ModuleType]
-    import cv
+    import cv2
 except ImportError:
     cv2 = None
 
@@ -96,6 +96,7 @@ class VerifyCommands(object):
 
     @DualUse.method()
     def my_vk(self):
+        "Display QR code of your identity key"
         click.echo(green(bold("Your VK is: ")) + str(self.vk))
         qr = qrcode.QRCode()
         qr.add_data(data="local.vula:vk:" + str(self.vk))
@@ -103,18 +104,13 @@ class VerifyCommands(object):
 
     @DualUse.method()
     def my_descriptor(self):
+        "Display text and QR code of your descriptor(s)"
         for ip, desc in self.my_descriptors.items():
             click.echo(green(bold("Descriptor for {}: ".format(ip))))
             qr = qrcode.QRCode()
             qr.add_data(data="local.vula:desc:" + str(desc))
             qr.print_tty()
             click.echo(repr(str(desc)))
-
-    @DualUse.method()
-    @click.argument('name', type=str)
-    def against(self, name):
-        # take name vk and vk (self), hash with sha256
-        pass
 
     @DualUse.method()
     @click.option('-w', '--width', default=640, show_default=True)
@@ -126,9 +122,10 @@ class VerifyCommands(object):
     @click.argument('hostname', type=str, required=True)
     def scan(self, width, height, camera, hostname, debug):
         """
+        Scan a QR code
+
         We expect a string object that roughly looks like the following three
         things:
-
 
             local.vula:desc:<descriptor base64 representation>
             local.vula:vk:<vk base64 representation>
@@ -200,6 +197,7 @@ class VerifyCommands(object):
         '-v', '--verbose', default=False, is_flag=True, show_default=True
     )
     def speak(self, verbose):
+        "Play audio for other peer to listen to"
         vk = str(self.vk)
         if verbose:
             click.echo(f"Sending vk: {vk}")
@@ -218,6 +216,7 @@ class VerifyCommands(object):
         type=bool,
     )
     def listen(self, hostname: str, verbose: bool):
+        "Listen for audio from other peer"
         try:
             known_vk = self.organize.get_vk_by_name(hostname)
         except GLib.Error:
@@ -264,16 +263,25 @@ class VerifyCommands(object):
     @DualUse.method()  # type: ignore
     @click.argument("hostname", required=True, type=str)
     @click.option(
-        "--multicast-group", default="224.3.29.71", show_default=True, type=str, help="Multicast group",
+        "--multicast-group",
+        default="224.3.29.71",
+        show_default=True,
+        type=str,
+        help="Multicast group",
     )
-    @click.option("--multicast-port", default=9005, show_default=True, type=int,
-                  help="Multicast listener port",)
+    @click.option(
+        "--multicast-port",
+        default=9005,
+        show_default=True,
+        type=int,
+        help="Multicast listener port",
+    )
     @click.option(
         "--bind-addr",
         default="0.0.0.0",
         show_default=True,
         type=str,
-        help="By default we bind to all IPv4 addresses where vula is operating",
+        help="By default we bind to all IPv4 addresses where vula operates",
     )
     @click.option(
         "--bind-mask",
@@ -288,7 +296,7 @@ class VerifyCommands(object):
         is_flag=True,
         default=True,
         type=bool,
-        help="Only reveal our VK to the first peer with the correct passphrase",
+        help="Reveal VK only to the first peer with the correct passphrase",
     )
     @click.option(
         "--passphrase",
@@ -329,8 +337,8 @@ class VerifyCommands(object):
         *hostname*.
 
         If the received *vk* hash matches the expected value for the peer
-        hostname's hashed vk, the host's vk is marked as verified and then the
-        *vk* for the hostname is pinned.
+        hostname's hashed *vk*, the host's *vk* is marked as verified and then
+        the *vk* for the hostname is pinned.
 
         By default, we bind the multicast REUNION protocol to each interface
         that is in the list of allowed vula interfaces. The REUNION protocol
@@ -349,9 +357,10 @@ class VerifyCommands(object):
             click.echo("Press Ctrl+C to stop")
         expected_peer_vk: str
         expected_peer_vk_hashed: bytes
-        expected_peer_vk, expected_peer_vk_hashed = (
-            self._lookup_peer_vk_hostname(hostname)
-        )
+        (
+            expected_peer_vk,
+            expected_peer_vk_hashed,
+        ) = self._lookup_peer_vk_hostname(hostname)
         message: bytes = hashlib.sha256(bytes(self.vk)).digest()
         kw['message'] = message
         try:
@@ -367,7 +376,12 @@ class VerifyCommands(object):
             raise click.ClickException("Verification failed")
         if len(hashed_peer_vk) != 32:
             click.echo(
-                red(bold("Invalid length of peer vk received. Verification failed."))
+                red(
+                    bold(
+                        "Invalid length of peer vk received. "
+                        + "Verification failed."
+                    )
+                )
             )
         if hashed_peer_vk == expected_peer_vk_hashed:
             res: str = self.organize.verify_and_pin_peer(
@@ -380,7 +394,8 @@ class VerifyCommands(object):
                 click.echo(
                     green(
                         bold(
-                            f"Verification succeeded: {hostname} is verified and pinned."
+                            f"Verification succeeded: {hostname}"
+                            + " is verified and pinned."
                         )
                     )
                 )
@@ -388,7 +403,7 @@ class VerifyCommands(object):
             else:
                 raise Exception(yamlres.error)
         else:
-            click.echo(red(bold(f"The received vk and does not match.")))
+            click.echo(red(bold("The received vk and does not match.")))
             if verbose:
                 click.echo(f"{hashed_peer_vk=}")
                 click.echo(f"{expected_peer_vk_hashed=}")
