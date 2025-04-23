@@ -1,0 +1,121 @@
+% -*- mode: latex; -*-
+% Vula Mock-GUI – Quick Local Test Setup
+% Using BFH Beamer corporate-design class
+% ------------------------------------------------------------
+\documentclass[
+  ngerman,          % BFH class language option (colors, fonts)
+  authorontitle=true,
+]{bfhbeamer}
+
+% Slides are written in English, but we leave the ngerman option for the CI theme
+\usepackage[english]{babel}
+
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[utf8]{inputenc}
+\fi
+
+% Code blocks
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\small,
+  frame=single,
+  breaklines=true,
+  columns=fullflexible
+}
+
+% ------------------------------------------------------------
+% Meta data
+% ------------------------------------------------------------
+\title{Vula Mock-GUI: Rapid Front-End Prototyping}
+\subtitle{Run the GUI without DBus or kernel dependencies}
+\author{Mursel Khan, Sander Dedding}
+\institute{Vula Project}
+
+% ------------------------------------------------------------
+\begin{document}
+
+\maketitle
+
+% ------------------------------------------------------------
+\section{Why a Mock-GUI?}
+
+\begin{frame}{Motivation}
+  \begin{itemize}
+    \item \textbf{Isolate} the front end from system services (DBus, WireGuard, \dots).
+    \item Enable \textbf{UI development}, \textbf{bug reproduction} and \textbf{CI tests} on any machine.
+    \item Provide deterministic dummy data via a \texttt{MockDataProvider}.
+  \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------
+\section{Architecture}
+
+\begin{frame}{Key Components}
+  \begin{description}
+    \item[MockDataProvider] Returns empty or sample structures for \texttt{get\_peers()}, \texttt{get\_prefs()}, \dots
+    \item[Patching] Functions \texttt{patch\_dataprovider()} and \texttt{patch\_constants()} monkey-patch the real modules before the UI loads.
+    \item[Tk App] After patching, \texttt{vula.frontend.ui.App} starts as usual—no code changes inside the UI layer.
+  \end{description}
+\end{frame}
+
+% ------------------------------------------------------------
+\section{Usage inside Dev-Container}
+
+% Frame with code block – needs [fragile]
+\begin{frame}[fragile]{One-Time Container Setup}
+  \framesubtitle{Executed automatically via \texttt{postCreateCommand}}
+\begin{lstlisting}[language=bash]
+# Install GTK and other build dependencies
+sudo apt-get update && sudo apt-get install -y gir1.2-gtk-3.0 \
+  girepository-2.0 libgirepository1.0-dev libcairo2-dev libffi-dev pkg-config
+
+# Create and activate virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install Vula in editable mode and Python deps
+pip install --upgrade pip setuptools wheel
+pip install -e .
+
+pip install pydbus PyGObject PyYAML qrcode Pillow pynacl cryptography schema click
+\end{lstlisting}
+\end{frame}
+
+% Second frame with enumerate and code – needs [fragile]
+\begin{frame}[fragile]{Start the Mock-GUI}
+\begin{enumerate}
+  \item Open browser: \url{http://localhost:6080} (noVNC desktop)
+  \item In terminal:
+\begin{lstlisting}[language=bash]
+cd /workspaces/vula
+source venv/bin/activate
+python tools/mock_gui_main.py
+\end{lstlisting}
+  \item The GUI window appears; interact freely—backend is mocked.
+\end{enumerate}
+\end{frame}
+
+% ------------------------------------------------------------
+\section{Typical Workflows}
+
+\begin{frame}{Developer Benefits}
+  \begin{itemize}
+    \item \textbf{Styling tweaks}: edit \texttt{vula/frontend/ui/*.py}, reload.
+    \item \textbf{Debugging}: set breakpoints without touching system services.
+    \item \textbf{CI}: headless launch, capture screenshots, run UI tests.
+  \end{itemize}
+\end{frame}
+
+% ------------------------------------------------------------
+\section{Summary}
+
+\begin{frame}{Take-aways}
+  \begin{itemize}
+    \item Mock-GUI \emph{decouples} front-end work from privileged backend.
+    \item Perfect for fast iteration, demonstrations, and automated tests.
+    \item Easily extended—add more fake data or test scenarios as needed.
+  \end{itemize}
+\end{frame}
+
+\end{document}
