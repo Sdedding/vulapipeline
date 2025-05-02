@@ -52,6 +52,11 @@ from .notclick import Debuggable
     flag_value=INFO,
     help="Set log level INFO",
 )
+@click.option(
+    '--no-pager',
+    is_flag=True,
+    help="Disable automatic pager use for commands with long output",
+)
 @click.group(cls=Debuggable, scope=globals(), invoke_without_command=True)
 @click.pass_context
 def main(ctx, log_level, *args, **kwargs):
@@ -165,6 +170,14 @@ for name, value in list(globals().items()):
     cmd = getattr(value, 'main', None)
     if isinstance(cmd, click.Command):
         main.add_command(cmd, name=name)
+try:
+    # this gives us a very nice "repl" subcommand.
+    # apt install python3-click-repl to enable it.
+    from click_repl import register_repl
+
+    register_repl(main)
+except ImportError:
+    pass
 
 if __name__ == "__main__":
     main()
