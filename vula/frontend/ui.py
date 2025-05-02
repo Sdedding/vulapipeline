@@ -32,6 +32,7 @@ class App(tk.Tk):
         tk.Tk.__init__(self, *args, **kwargs)
 
         self.geometry("{}x{}".format(WIDTH, HEIGHT))
+
         self.config(bg=BACKGROUND_COLOR)
 
         # create all of the main containers
