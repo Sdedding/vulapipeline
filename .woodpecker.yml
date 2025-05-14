@@ -6,8 +6,27 @@ when:
   event: [push, tag, pull_request, manual]
 
 steps:
+  nix:
+    depends_on: []
+    image: nixos/nix
+    environment:
+      NIX_CONFIG: extra-experimental-features = nix-command flakes
+    commands:
+      - system=$(nix-instantiate --eval --expr "builtins.currentSystem")
+      - nix build --print-build-logs .#checks.$system.treefmt
+      - nix build --print-build-logs
+
+  mypy:
+    depends_on: []
+    image: ubuntu:plucky
+    commands:
+      - export CI=true
+      - PATH=$PATH:~/.local/bin
+      - ./misc/install-ci-mypy.sh
+      - mypy test vula
 
   check_test:
+    depends_on: []
     image: python:3.10-bookworm
     commands:
       - export CI=true

@@ -166,3 +166,6 @@ Thumbs.db
 
 # vula_libnss/
 vula_libnss/
+
+# Nix
+/result
