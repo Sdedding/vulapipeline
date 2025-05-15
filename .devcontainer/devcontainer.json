@@ -64,7 +64,7 @@
 				"ms-vscode-remote.vscode-remote-extensionpack"
 			]
 			,			"settings": {
-				"python.defaultInterpreterPath": "/workspaces/vula/venv"
+				"python.defaultInterpreterPath": "/IdeaProjects/vula/venv"
 			}
 		}
 	}
