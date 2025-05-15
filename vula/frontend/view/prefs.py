@@ -9,38 +9,33 @@ from tkinter import (
     PhotoImage,
     Scrollbar,
     Text,
+    Widget, ttk,
 )
 from tkinter.constants import W
-from typing import cast
 
 from vula.frontend import DataProvider, PrefsType
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
-    BACKGROUND_COLOR_CARD,
     FONT,
     FONT_SIZE_HEADER_2,
     FONT_SIZE_TEXT_XL,
     IMAGE_BASE_PATH,
-    TEXT_COLOR_BLACK,
     TEXT_COLOR_GREEN,
-    TEXT_COLOR_GREY,
-    TEXT_COLOR_HEADER_2,
     TEXT_COLOR_RED,
-    TEXT_COLOR_WHITE,
 )
-from vula.frontend.dataprovider import PrefsTypeKeys
 from vula.frontend.overlay import PopupMessage
 
 _ = gettext.gettext
 
 
-class Prefs(Frame):
+class Prefs(ttk.Frame):
     data = DataProvider()
 
-    def __init__(self, frame: Frame) -> None:
+    def __init__(self, frame: ttk.Frame) -> None:
+        super().__init__()
         self.show_editable: bool = False
-        self.prefs: PrefsType
-        self.widgets: dict[str, Text | Button] = {}
+        self.prefs: PrefsType = []
+        self.widgets: ttk.Widget = {}
         self.frame: Frame = frame
 
         self.display_header()
@@ -52,70 +47,50 @@ class Prefs(Frame):
 
     def display_frames(self) -> None:
         # Frames, Canvas and Scrollbars
-        self.top_frame = Frame(
+        self.top_frame = ttk.Frame(
             self.frame,
-            bg=BACKGROUND_COLOR,
             width=597,
-            padx=30,
-            pady=10,
-            highlightbackground=BACKGROUND_COLOR,
-            highlightcolor=BACKGROUND_COLOR,
-            highlightthickness=1,
         )
 
-        self.bottom_frame = Frame(
+        self.bottom_frame = ttk.Frame(
             self.frame,
-            bg=BACKGROUND_COLOR,
             width=597,
             height=97,
-            padx=30,
-            pady=10,
-            highlightbackground=BACKGROUND_COLOR,
-            highlightcolor=BACKGROUND_COLOR,
-            highlightthickness=1,
         )
 
         self.pref_canvas = Canvas(
             self.top_frame,
-            background=BACKGROUND_COLOR_CARD,
-            highlightbackground=BACKGROUND_COLOR_CARD,
-            highlightcolor=BACKGROUND_COLOR_CARD,
             highlightthickness=1,
         )
 
-        self.yscrollbar = Scrollbar(
+        self.yscrollbar = ttk.Scrollbar(
             self.top_frame,
             orient="vertical",
             command=self.pref_canvas.yview,
-            relief="flat",
         )
-        self.pref_content_frame = Frame(
+        self.pref_content_frame = ttk.Frame(
             self.pref_canvas,
-            bg=BACKGROUND_COLOR_CARD,
-            highlightbackground=BACKGROUND_COLOR_CARD,
-            highlightcolor=BACKGROUND_COLOR_CARD,
-            highlightthickness=1,
         )
 
         # Packing and configuring
-        self.pref_canvas.pack(side="left", fill="y", expand=True)
+        self.pref_canvas.pack(side="left", fill="y", expand=1)
 
         self.yscrollbar.pack(side="right", fill="y")
 
         self.pref_canvas.configure(yscrollcommand=self.yscrollbar.set)
-
         self.pref_canvas.bind(
             '<Configure>',
             lambda e: self.pref_canvas.configure(
-                scrollregion=self.pref_canvas.bbox('all')
+                scrollregion=self.pref_content_frame.bbox('all')
             ),
         )
+
         self.pref_canvas.create_window(
             (0, 0), window=self.pref_content_frame, anchor="nw"
         )
 
         self.top_frame.pack(
-            fill="both", expand=True, padx=(0, 50), pady=(50, 0), side="top"
+            fill="both", expand=1, padx=(0, 50), pady=(50, 0), side="top"
         )
         self.bottom_frame.pack(side="left")
 
@@ -132,48 +107,33 @@ class Prefs(Frame):
             file=IMAGE_BASE_PATH + 'cancel.png'
         )
 
-        self.btn_edit = Button(
+        self.btn_edit = ttk.Button(
             master=self.bottom_frame,
             image=self.button_image_edit,
             command=lambda: self.set_editable(),
-            borderwidth=0,
-            highlightthickness=0,
-            relief="sunken",
-            background=BACKGROUND_COLOR,
-            activebackground=BACKGROUND_COLOR,
-            activeforeground=BACKGROUND_COLOR,
+
         )
-        self.btn_save = Button(
+        self.btn_save = ttk.Button(
             self.bottom_frame,
             image=self.button_image_save_blue,
             command=lambda: self.save_prefs(),
-            borderwidth=0,
-            highlightthickness=0,
-            relief="sunken",
-            background=BACKGROUND_COLOR,
-            activebackground=BACKGROUND_COLOR,
-            activeforeground=BACKGROUND_COLOR,
+
         )
-        self.btn_cancel = Button(
+        self.btn_cancel = ttk.Button(
             self.bottom_frame,
             image=self.button_image_cancel,
             command=lambda: self.cancel(),
-            borderwidth=0,
-            highlightthickness=0,
-            relief="sunken",
-            background=BACKGROUND_COLOR,
-            activebackground=BACKGROUND_COLOR,
-            activeforeground=BACKGROUND_COLOR,
+
         )
         self.btn_edit.pack(side="left", padx=10, pady=10)
 
     def display_header(self) -> None:
-        self.title_frame = Frame(
-            self.frame, bg=BACKGROUND_COLOR, padx=30, width=400, height=40
+        self.title_frame = ttk.Frame(
+            self.frame, width=400, height=40
         )
         title = Canvas(
             self.title_frame,
-            bg=BACKGROUND_COLOR,
+
             height=40,
             width=400,
             bd=0,
@@ -186,13 +146,12 @@ class Prefs(Frame):
             0,
             anchor="nw",
             text="Settings",
-            fill=TEXT_COLOR_HEADER_2,
             font=(FONT, FONT_SIZE_HEADER_2),
         )
-        self.title_frame.grid(row=0, column=0, pady=(10, 0), sticky="w")
+        self.title_frame.pack(side="top",  pady=(10, 0))
 
     def get_prefs(self) -> None:
-        self.prefs = self.data.get_prefs()
+        self.prefs: PrefsType = self.data.get_prefs()
 
     def toggle(self, event: Event) -> None:
         """
@@ -217,36 +176,31 @@ class Prefs(Frame):
 
     def save_prefs(self) -> None:
         for pref, values in self.prefs.items():
-            _pref: PrefsTypeKeys = cast(PrefsTypeKeys, pref)
-            widget_type = self.widgets[pref]
-            if isinstance(widget_type, Text):
-                widget = widget_type
-                if type(values) == list:
-                    current_list = widget.get("1.0", "end").split()
-                    for value in current_list:
-                        if isinstance(value, list):
-                            if value not in self.prefs[_pref]:
-                                res = self.data.add_pref(pref, value)
-                                if self.show_error(res) == 1:
-                                    return
-                    for value in values:
-                        if value not in current_list:
-                            res = self.data.remove_pref(pref, value)
-                            if self.show_error(res) == 1:
-                                return
-
-                # boolean based prefs
-                elif type(values) == bool:
-                    bool_value = str(self.widgets[pref]["text"])
-                    res = self.data.set_pref(pref, bool_value)
-                    if self.show_error(res) == 1:
-                        return
-                # int based prefs
-                elif type(values) == int:
-                    int_value = str(widget[pref].get("1.0", "end"))
-                    res = self.data.set_pref(pref, int_value)
-                    if self.show_error(res) == 1:
-                        return
+            # list based prefs
+            if type(values) == list:
+                current_list = self.widgets[pref].get("1.0", "end").split()
+                for value in current_list:
+                    if value not in self.prefs[pref]:
+                        res = self.data.add_pref(pref, value)
+                        if self.show_error(res) == 1:
+                            return
+                for value in values:
+                    if value not in current_list:
+                        res = self.data.remove_pref(pref, value)
+                        if self.show_error(res) == 1:
+                            return
+            # boolean based prefs
+            elif type(values) == bool:
+                bool_value = str(self.widgets[pref]["text"])
+                res = self.data.set_pref(pref, bool_value)
+                if self.show_error(res) == 1:
+                    return
+            # int based prefs
+            elif type(values) == int:
+                int_value = str(self.widgets[pref].get("1.0", "end"))
+                res = self.data.set_pref(pref, int_value)
+                if self.show_error(res) == 1:
+                    return
 
         self.get_prefs()
         self.show_editable = False
@@ -312,14 +266,11 @@ class Prefs(Frame):
         # Loop over all preferences and display them
         for pref, value in self.prefs.items():
             # show preference descriptions on the left
-            pref_label = Label(
+            pref_label = ttk.Label(
                 self.pref_content_frame,
                 text=_(str(pref)) + ":",
                 font=(FONT, FONT_SIZE_TEXT_XL),
-                fg=TEXT_COLOR_WHITE,
-                height=1,
                 anchor="nw",
-                bg=BACKGROUND_COLOR_CARD,
             )
             pref_label.grid(row=counter, column=0, padx=2, pady=2, sticky="nw")
 
@@ -330,14 +281,11 @@ class Prefs(Frame):
                         self.pref_content_frame,
                         height=len(value),
                         width=20,
-                        bg=BACKGROUND_COLOR_CARD,
-                        fg=TEXT_COLOR_GREY,
-                        highlightbackground=BACKGROUND_COLOR_CARD,
-                        insertbackground=TEXT_COLOR_WHITE,
+
                     )
                     self.widgets[pref] = value_text
-                    for element in value:
-                        value_text.insert(tk.END, element + "\n")
+                    for i in range(len(value)):
+                        value_text.insert(tk.END, value[i] + "\n")
 
                     value_text.grid(
                         row=counter, column=1, padx=1, pady=1, sticky=W
@@ -346,24 +294,21 @@ class Prefs(Frame):
 
                 else:
                     if len(value) == 0:
-                        value_label = Label(
+                        value_label = ttk.Label(
                             self.pref_content_frame,
                             text="None",
                             font=(FONT, FONT_SIZE_TEXT_XL),
-                            bg=BACKGROUND_COLOR_CARD,
-                            fg=TEXT_COLOR_WHITE,
                         )
                         value_label.grid(
                             row=counter, column=1, padx=1, pady=1, sticky=W
                         )
                         counter += 1
-                    for element in value:
-                        value_label = Label(
+                    for i in range(len(value)):
+                        value_label = ttk.Label(
                             self.pref_content_frame,
-                            text=str(element),
+                            text=str(value[i]),
                             font=(FONT, FONT_SIZE_TEXT_XL),
-                            bg=BACKGROUND_COLOR_CARD,
-                            fg=TEXT_COLOR_WHITE,
+
                         )
                         value_label.grid(
                             row=counter, column=1, padx=1, pady=1, sticky=W
@@ -375,26 +320,16 @@ class Prefs(Frame):
                 if str(value) == "True":
                     color = TEXT_COLOR_GREEN
                     font_color = TEXT_COLOR_GREEN
-                    font_color_button = TEXT_COLOR_WHITE
 
                 if str(value) == "False":
                     color = TEXT_COLOR_RED
                     font_color = TEXT_COLOR_RED
-                    font_color_button = TEXT_COLOR_WHITE
 
                 if self.show_editable:
-                    btn_bool = Button(
+                    btn_bool = ttk.Button(
                         self.pref_content_frame,
                         text=(str(value)),
                         width=5,
-                        height=1,
-                        bg=color,
-                        fg=font_color_button,
-                        highlightbackground=BACKGROUND_COLOR_CARD,
-                        highlightcolor=BACKGROUND_COLOR_CARD,
-                        borderwidth=0,
-                        highlightthickness=0,
-                        relief="flat",
                     )
                     btn_bool.widgetName = [pref]
                     self.widgets[pref] = btn_bool
@@ -406,12 +341,11 @@ class Prefs(Frame):
                     btn_bool.bind("<Enter>", self.bool_on_enter)
                     btn_bool.bind("<Button-1>", self.toggle)
                 else:
-                    label = Label(
+                    label = ttk.Label(
                         self.pref_content_frame,
                         text=str(value),
                         font=(FONT, FONT_SIZE_TEXT_XL),
-                        bg=BACKGROUND_COLOR_CARD,
-                        fg=font_color,
+
                     )
                     label.grid(row=counter, column=1, padx=1, pady=1, sticky=W)
 
@@ -424,24 +358,19 @@ class Prefs(Frame):
                         self.pref_content_frame,
                         height=1,
                         width=20,
-                        bg=BACKGROUND_COLOR_CARD,
-                        fg=TEXT_COLOR_GREY,
-                        highlightbackground=BACKGROUND_COLOR_CARD,
-                        highlightcolor=BACKGROUND_COLOR_CARD,
-                        insertbackground=TEXT_COLOR_WHITE,
+
                     )
                     self.widgets[pref] = value_text
                     value_text.grid(
                         row=counter, column=1, padx=1, pady=1, sticky=W
                     )
-                    value_text.insert(tk.END, str(value))
+                    value_text.insert(tk.END, value)
                 else:
-                    label = Label(
+                    label = ttk.Label(
                         self.pref_content_frame,
                         text=str(value),
                         font=(FONT, FONT_SIZE_TEXT_XL),
-                        bg=BACKGROUND_COLOR_CARD,
-                        fg=TEXT_COLOR_WHITE,
+
                     )
                     label.grid(row=counter, column=1, padx=1, pady=1, sticky=W)
                 counter += 1

@@ -1,12 +1,12 @@
 import gettext
 import math
-from tkinter import Button, Canvas, Frame, Label, PhotoImage
+import tkinter as tk
+from tkinter import Button, Canvas, Frame, Label, PhotoImage, ttk
 from typing import List
 
 from vula.frontend import DataProvider, PeerType
 from vula.frontend.constants import (
-    BACKGROUND_COLOR,
-    BACKGROUND_COLOR_CARD,
+
     FONT,
     FONT_SIZE_HEADER_2,
     FONT_SIZE_TEXT_L,
@@ -15,9 +15,8 @@ from vula.frontend.constants import (
     FONT_SIZE_TEXT_XS,
     IMAGE_BASE_PATH,
     TEXT_COLOR_GREEN,
-    TEXT_COLOR_GREY,
-    TEXT_COLOR_HEADER_2,
-    TEXT_COLOR_PURPLE,
+
+
     TEXT_COLOR_WHITE,
     TEXT_COLOR_YELLOW,
 )
@@ -26,10 +25,10 @@ from vula.frontend.overlay import PeerDetailsOverlay, PopupMessage
 _ = gettext.gettext
 
 
-class Peers(Frame):
+class Peers(ttk.Frame):
     data = DataProvider()
 
-    peer_frames: List[Frame] = []
+    peer_frames: List[ttk.Frame] = []
 
     # need to save this numbers for updating the GUI,
     # as it takes quite long for dbus to make these changes
@@ -40,9 +39,16 @@ class Peers(Frame):
     peer_page = 1
     peers_per_page = 5
 
-    def __init__(self, parent: Frame) -> None:
-        Frame.__init__(self, parent)
-        self.app = parent
+    def __init__(self, parent: ttk.Frame) -> None:
+        super().__init__(parent)
+        self.container = ttk.Frame(self)
+        self.container.pack()
+
+
+        self.list = ttk.Frame(self.container)
+        self.list.pack()
+
+        self.details = ttk.Frame(self.container)
 
         self.display_header()
         self.display_peers()
@@ -50,12 +56,11 @@ class Peers(Frame):
         self.update_loop()
 
     def display_header(self) -> None:
-        self.title_frame = Frame(
-            self.app, bg=BACKGROUND_COLOR, width=400, height=40
+        self.title_frame = ttk.Frame(
+            self.container, width=400, height=40
         )
-        title = Canvas(
+        title = tk.Canvas(
             self.title_frame,
-            bg=BACKGROUND_COLOR,
             height=40,
             width=400,
             bd=0,
@@ -68,20 +73,17 @@ class Peers(Frame):
             0,
             anchor="nw",
             text="Peers",
-            fill=TEXT_COLOR_HEADER_2,
             font=(FONT, FONT_SIZE_HEADER_2),
         )
-        self.title_frame.grid(row=0, column=0, pady=(10, 0), sticky="w")
 
     def display_buttons(self) -> None:
-        self.buttons_frame = Frame(
-            self.app, bg=BACKGROUND_COLOR, width=400, height=80
+        self.buttons_frame = ttk.Frame(
+            self.list, width=400, height=80
         )
-        self.buttons_frame.grid(row=99, column=0, sticky="w", pady=10)
+        self.buttons_frame.pack(side="bottom",pady=10)
 
         input_canvas = Canvas(
             self.buttons_frame,
-            bg=BACKGROUND_COLOR,
             height=80,
             width=400,
             bd=0,
@@ -93,25 +95,19 @@ class Peers(Frame):
         self.button_image_previous_page = PhotoImage(
             file=IMAGE_BASE_PATH + 'previous.png'
         )
-        self.button_previous_page = Button(
+        self.button_previous_page = ttk.Button(
             master=self.buttons_frame,
             image=self.button_image_previous_page,
-            borderwidth=0,
-            highlightthickness=0,
             command=lambda: self.previous_page(),
-            relief="flat",
         )
 
         self.button_image_next_page = PhotoImage(
             file=IMAGE_BASE_PATH + 'next.png'
         )
-        self.button_next_page = Button(
+        self.button_next_page = ttk.Button(
             master=self.buttons_frame,
             image=self.button_image_next_page,
-            borderwidth=0,
-            highlightthickness=0,
             command=lambda: self.next_page(),
-            relief="flat",
         )
 
         if math.ceil(self.num_peers / self.peers_per_page) > 1:
@@ -147,14 +143,12 @@ class Peers(Frame):
         counter = 1
 
         if self.num_peers == 0:
-            no_peers_label = Label(
-                self.app,
+            no_peers_label = ttk.Label(
+                self.list,
                 text="No Peers to display",
-                bg=BACKGROUND_COLOR,
-                fg=TEXT_COLOR_WHITE,
                 font=(FONT, FONT_SIZE_TEXT_L),
             )
-            no_peers_label.grid(row=counter, column=0, sticky="w", pady=10)
+            no_peers_label.pack(side="bottom", pady=10)
 
         # Get slice of array for current page
         # [0:5], [5, 10] etc.
@@ -166,14 +160,13 @@ class Peers(Frame):
         ]
 
         for peer in peers_for_page:
-            peer_frame = Frame(
-                self.app, bg=BACKGROUND_COLOR, width=400, height=70
+            peer_frame = ttk.Frame(
+                self.list, width=400, height=70
             )
-            peer_frame.grid(row=counter, column=0, sticky="w", pady=10)
+            peer_frame.pack(side="top", pady=10)
 
             canvas = Canvas(
                 peer_frame,
-                bg=BACKGROUND_COLOR,
                 height=70,
                 width=400,
                 bd=0,
@@ -184,13 +177,13 @@ class Peers(Frame):
             canvas.place(x=0, y=0)
 
             self.round_rectangle(
-                canvas, 0, 0, 400, 70, r=30, fill=BACKGROUND_COLOR_CARD
+                canvas, 0, 0, 400, 70, r=30,
             )
 
             if peer["name"]:
                 name = peer["name"]
             else:
-                name = peer["other_names"] or ""
+                name = peer["other_names"]
 
             # Peer name
             canvas.create_text(
@@ -198,7 +191,6 @@ class Peers(Frame):
                 10.0,
                 anchor="nw",
                 text=name,
-                fill=TEXT_COLOR_GREEN,
                 font=(FONT, FONT_SIZE_TEXT_S),
             )
 
@@ -207,48 +199,49 @@ class Peers(Frame):
                 20.0,
                 40.0,
                 anchor="nw",
-                text=peer["endpoint"] or "",
-                fill=TEXT_COLOR_GREY,
+                text=peer["endpoint"],
+
                 font=(FONT, FONT_SIZE_TEXT_XS),
             )
 
             # Status labels
-            if peer["status"] is not None:
-                if "enabled" in peer["status"]:
-                    canvas.create_text(
-                        205.0,
-                        40.0,
-                        anchor="nw",
-                        text="enabled",
-                        fill=TEXT_COLOR_YELLOW,
-                        font=(FONT, FONT_SIZE_TEXT_M),
-                    )
-                if "unpinned" not in peer["status"]:
-                    canvas.create_text(
-                        270.0,
-                        40.0,
-                        anchor="nw",
-                        text="pinned",
-                        fill=TEXT_COLOR_PURPLE,
-                        font=(FONT, FONT_SIZE_TEXT_M),
-                    )
-                if "unverified" not in peer["status"]:
-                    canvas.create_text(
-                        325.0,
-                        40.0,
-                        anchor="nw",
-                        text="verified",
-                        fill=TEXT_COLOR_GREEN,
-                        font=(FONT, FONT_SIZE_TEXT_M),
-                    )
+            if "enabled" in peer["status"]:
+                canvas.create_text(
+                    205.0,
+                    40.0,
+                    anchor="nw",
+                    text="enabled",
+                    font=(FONT, FONT_SIZE_TEXT_M),
+                )
+            if "unpinned" not in peer["status"]:
+                canvas.create_text(
+                    270.0,
+                    40.0,
+                    anchor="nw",
+                    text="pinned",
+                    font=(FONT, FONT_SIZE_TEXT_M),
+                )
+            if "unverified" not in peer["status"]:
+                canvas.create_text(
+                    325.0,
+                    40.0,
+                    anchor="nw",
+                    text="verified",
 
-            canvas.bind("<Button-1>", lambda e: self.open_details(peer))
+                    font=(FONT, FONT_SIZE_TEXT_M),
+                )
+
+            canvas.bind("<Button-1>", lambda e=_, p=peer: self.open_details(p))
 
             self.peer_frames.append(peer_frame)
+            self.list.pack(side="bottom")
             counter += 1
 
     def open_details(self, peer: PeerType) -> None:
-        popup = PeerDetailsOverlay(self.app, peer)
+        popup = PeerDetailsOverlay(self.details, peer)
+        self.list.pack_forget()
+        self.details.pack(side="bottom")
+        popup.pack( side="bottom", expand=1, fill="x")
         result = popup.show()
         if result == "delete":
             self.num_peers_after_remove = self.num_peers - 1
@@ -260,6 +253,7 @@ class Peers(Frame):
             or result == "rename"
             or result == "additional_ip"
         ):
+            self.details.pack_forget()
             self.clear_peers()
             self.display_peers()
 
@@ -288,7 +282,7 @@ class Peers(Frame):
     def clear_peers(self) -> None:
         for frame in self.peer_frames:
             frame.destroy()
-        self.app.update()
+        self.list.update()
         self.peer_frames.clear()
 
     def round_rectangle(

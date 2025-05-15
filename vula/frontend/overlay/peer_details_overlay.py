@@ -5,28 +5,24 @@ from typing import Literal
 
 from vula.frontend import DataProvider, PeerType
 from vula.frontend.constants import (
-    BACKGROUND_COLOR,
-    BACKGROUND_COLOR_ENTRY,
+
     FONT,
     FONT_SIZE_HEADER,
     FONT_SIZE_TEXT_M,
     IMAGE_BASE_PATH,
-    TEXT_COLOR_BLACK,
-    TEXT_COLOR_HEADER,
-    TEXT_COLOR_ORANGE,
-    TEXT_COLOR_WHITE,
 )
 
-from .popupMessage import PopupMessage
+from vula.frontend.overlay.popupMessage import PopupMessage
 
 _ = gettext.gettext
 
 
-class PeerDetailsOverlay(tk.Toplevel):
+class PeerDetailsOverlay(ttk.Frame):
     data = DataProvider()
 
-    def __init__(self, parent: tk.Frame, peer: PeerType) -> None:
-        tk.Toplevel.__init__(self, parent)
+    def __init__(self, parent: ttk.Frame, peer: PeerType) -> None:
+        ttk.Frame.__init__(self, parent)
+        super().__init__()
         self.app = parent
         self.peer = peer
 
@@ -34,30 +30,24 @@ class PeerDetailsOverlay(tk.Toplevel):
         if peer["name"]:
             self.name = peer["name"]
         else:
-            self.name = peer["other_names"] or ""
+            self.name = peer["other_names"]
 
-        self.title("Vula | Peer Details: " + self.name)
-        self.geometry("520x500")
-        self.config(bg=BACKGROUND_COLOR)
-        self.resizable(True, True)
+
         self.return_value: Literal[
             'delete', 'pin_and_verify', 'rename', 'additional_ip', None
         ] = None
         self.display_peer_details()
 
     def display_peer_details(self) -> None:
-        self.top_frame = tk.Frame(
+        self.top_frame = ttk.Frame(
             self,
-            bg=BACKGROUND_COLOR,
-            highlightthickness=0,
+
             width=500,
-            padx=2,
-            pady=2,
+
         )
 
         self.top_canvas = tk.Canvas(
             self.top_frame,
-            bg=BACKGROUND_COLOR,
             width=500,
             bd=0,
             highlightthickness=0,
@@ -70,17 +60,14 @@ class PeerDetailsOverlay(tk.Toplevel):
             command=self.top_canvas.yview,
         )
 
-        frame = tk.Frame(
+        frame = ttk.Frame(
             self.top_canvas,
-            bg=BACKGROUND_COLOR,
             width=600,
             height=870,
-            highlightthickness=0,
         )
         frame.grid(row=0, sticky="ew")
         self.canvas = tk.Canvas(
             frame,
-            bg=BACKGROUND_COLOR,
             height=870,
             width=600,
             bd=0,
@@ -90,9 +77,9 @@ class PeerDetailsOverlay(tk.Toplevel):
         self.canvas.place(x=0, y=0)
 
         # Packing and configuring
-        self.top_canvas.pack(side="left", fill="y", expand=True, anchor="nw")
+        self.top_canvas.pack(side="left", fill="y", expand=1, anchor="nw")
 
-        self.yscrollbar.pack(side="right", fill="y")
+        self.yscrollbar.pack(side="right", fill="y", expand=1)
 
         self.top_canvas.configure(yscrollcommand=self.yscrollbar.set)
         self.top_canvas.bind(
@@ -105,12 +92,12 @@ class PeerDetailsOverlay(tk.Toplevel):
         self.top_canvas.create_window((0, 0), window=frame, anchor="nw")
 
         self.top_frame.pack(
-            fill="both", expand=True, padx=(0, 0), pady=(0, 0), side="left"
+            fill="both", expand=1, padx=(0, 0), pady=(0, 0), side="left"
         )
 
         self.top_frame.columnconfigure(0, weight=1)
 
-        self.label = tk.Label(frame, text="test")
+        self.label = ttk.Label(frame, text="test")
 
         # Title
         self.canvas.create_text(
@@ -118,7 +105,6 @@ class PeerDetailsOverlay(tk.Toplevel):
             26.0,
             anchor="nw",
             text="Peer",
-            fill=TEXT_COLOR_HEADER,
             font=(FONT, FONT_SIZE_HEADER),
         )
 
@@ -126,16 +112,12 @@ class PeerDetailsOverlay(tk.Toplevel):
         self.button_delete_image = tk.PhotoImage(
             file=IMAGE_BASE_PATH + 'delete.png'
         )
-        button_delete = tk.Button(
+        button_delete = ttk.Button(
             frame,
             image=self.button_delete_image,
-            borderwidth=0,
-            highlightthickness=0,
-            command=lambda: self.delete_peer(self.peer["id"] or "", self.name),
-            relief="sunken",
-            background=BACKGROUND_COLOR,
-            activebackground=BACKGROUND_COLOR,
-            activeforeground=BACKGROUND_COLOR,
+
+            command=lambda: self.delete_peer(self.peer["id"], self.name),
+
         )
         button_delete.place(x=450.0, y=34.0, width=39.0, height=31.0)
 
@@ -145,7 +127,6 @@ class PeerDetailsOverlay(tk.Toplevel):
             93.0,
             anchor="nw",
             text="name:",
-            fill=TEXT_COLOR_WHITE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
@@ -158,27 +139,21 @@ class PeerDetailsOverlay(tk.Toplevel):
         self.entry_name = tk.Entry(
             frame,
             bd=0,
-            bg=BACKGROUND_COLOR_ENTRY,
-            fg=TEXT_COLOR_BLACK,
             highlightthickness=0,
         )
-        self.entry_name.insert(0, self.peer["name"] or "")
+        self.entry_name.insert(0, self.peer["name"])
         self.entry_name.place(x=45.5, y=114.0, width=129.0, height=23.0)
 
         # name save
         self.button_image_name = tk.PhotoImage(
             file=IMAGE_BASE_PATH + 'save.png'
         )
-        button_name = tk.Button(
+        button_name = ttk.Button(
             frame,
             image=self.button_image_name,
-            borderwidth=0,
-            highlightthickness=0,
+
             command=lambda: self.edit_peer(),
-            relief="sunken",
-            background=BACKGROUND_COLOR,
-            activebackground=BACKGROUND_COLOR,
-            activeforeground=BACKGROUND_COLOR,
+
         )
         button_name.place(x=190.0, y=115.0, width=34.0, height=23.0)
 
@@ -188,7 +163,6 @@ class PeerDetailsOverlay(tk.Toplevel):
             168.0,
             anchor="nw",
             text="id:",
-            fill=TEXT_COLOR_WHITE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
@@ -196,24 +170,19 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             194.0,
             anchor="nw",
-            text=self.peer["id"] or "",
-            fill=TEXT_COLOR_ORANGE,
+            text=self.peer["id"],
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
         self.button_image_copy_id = tk.PhotoImage(
             file=IMAGE_BASE_PATH + 'clipboard.png'
         )
-        button_copy_id = tk.Button(
+        button_copy_id = ttk.Button(
             frame,
             image=self.button_image_copy_id,
-            borderwidth=0,
-            highlightthickness=0,
-            command=lambda: self.add_to_clipbaord(self.peer["id"] or ""),
-            relief="sunken",
-            background=BACKGROUND_COLOR,
-            activebackground=BACKGROUND_COLOR,
-            activeforeground=BACKGROUND_COLOR,
+
+            command=lambda: self.add_to_clipbaord(self.peer["id"]),
+
         )
         button_copy_id.place(x=53.0, y=163.0, width=34.0, height=23.0)
 
@@ -223,7 +192,6 @@ class PeerDetailsOverlay(tk.Toplevel):
             236.0,
             anchor="nw",
             text="other_names:",
-            fill=TEXT_COLOR_WHITE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
@@ -231,8 +199,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             262.0,
             anchor="nw",
-            text=self.peer["other_names"] or "",
-            fill=TEXT_COLOR_ORANGE,
+            text=self.peer["other_names"],
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
@@ -242,7 +209,6 @@ class PeerDetailsOverlay(tk.Toplevel):
             304.0,
             anchor="nw",
             text="status:",
-            fill=TEXT_COLOR_WHITE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
@@ -250,24 +216,19 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             330.0,
             anchor="nw",
-            text=self.peer["status"] or "",
-            fill=TEXT_COLOR_ORANGE,
+            text=self.peer["status"],
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
         self.button_image_pin_verify = tk.PhotoImage(
             file=IMAGE_BASE_PATH + 'pin_and_verify.png'
         )
-        button_pin_verify = tk.Button(
+        button_pin_verify = ttk.Button(
             frame,
             image=self.button_image_pin_verify,
-            borderwidth=0,
-            highlightthickness=0,
+
             command=lambda: self.pin_verify(),
-            relief="sunken",
-            background=BACKGROUND_COLOR,
-            activebackground=BACKGROUND_COLOR,
-            activeforeground=BACKGROUND_COLOR,
+
         )
         button_pin_verify.place(x=78.0, y=299.0, width=92.0, height=23.0)
 
@@ -277,7 +238,6 @@ class PeerDetailsOverlay(tk.Toplevel):
             372.0,
             anchor="nw",
             text="endpoint:",
-            fill=TEXT_COLOR_WHITE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
@@ -285,8 +245,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             398.0,
             anchor="nw",
-            text=self.peer["endpoint"] or "",
-            fill=TEXT_COLOR_ORANGE,
+            text=self.peer["endpoint"],
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
@@ -296,7 +255,6 @@ class PeerDetailsOverlay(tk.Toplevel):
             440.0,
             anchor="nw",
             text="allowed_ip:",
-            fill=TEXT_COLOR_WHITE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
@@ -304,8 +262,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             466.0,
             anchor="nw",
-            text=str(self.peer["allowed_ips"]),
-            fill=TEXT_COLOR_ORANGE,
+            text=str(self.peer["allowed_ip"]),
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
@@ -315,7 +272,6 @@ class PeerDetailsOverlay(tk.Toplevel):
             508.0,
             anchor="nw",
             text="latest_signature:",
-            fill=TEXT_COLOR_WHITE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
@@ -323,8 +279,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             534.0,
             anchor="nw",
-            text=self.peer["latest_signature"] or "",
-            fill=TEXT_COLOR_ORANGE,
+            text=self.peer["latest_signature"],
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
@@ -334,7 +289,6 @@ class PeerDetailsOverlay(tk.Toplevel):
             576.0,
             anchor="nw",
             text="latest_handshake:",
-            fill=TEXT_COLOR_WHITE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
@@ -342,8 +296,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             602.0,
             anchor="nw",
-            text=self.peer["latest_handshake"] or "",
-            fill=TEXT_COLOR_ORANGE,
+            text=self.peer["latest_handshake"],
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
@@ -353,7 +306,6 @@ class PeerDetailsOverlay(tk.Toplevel):
             644.0,
             anchor="nw",
             text="wg_pubkey:",
-            fill=TEXT_COLOR_WHITE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
@@ -361,26 +313,19 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             670.0,
             anchor="nw",
-            text=self.peer["wg_pubkey"] or "",
-            fill=TEXT_COLOR_ORANGE,
+            text=self.peer["wg_pubkey"],
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
         self.button_image_copy_wg_pubkey = tk.PhotoImage(
             file=IMAGE_BASE_PATH + 'clipboard.png'
         )
-        button_copy_wg_pubkey = tk.Button(
+        button_copy_wg_pubkey = ttk.Button(
             frame,
             image=self.button_image_copy_wg_pubkey,
-            borderwidth=0,
-            highlightthickness=0,
-            command=lambda: self.add_to_clipbaord(
-                self.peer["wg_pubkey"] or ""
-            ),
-            relief="sunken",
-            background=BACKGROUND_COLOR,
-            activebackground=BACKGROUND_COLOR,
-            activeforeground=BACKGROUND_COLOR,
+
+            command=lambda: self.add_to_clipbaord(self.peer["wg_pubkey"]),
+
         )
         button_copy_wg_pubkey.place(x=108.0, y=639.0, width=34.0, height=23.0)
 
@@ -390,7 +335,6 @@ class PeerDetailsOverlay(tk.Toplevel):
             712.0,
             anchor="nw",
             text="allowed_ips:",
-            fill=TEXT_COLOR_WHITE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
@@ -398,8 +342,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             738.0,
             anchor="nw",
-            text=self.peer["allowed_ips"] or "",
-            fill=TEXT_COLOR_ORANGE,
+            text=self.peer["allowed_ip"],
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
@@ -409,7 +352,6 @@ class PeerDetailsOverlay(tk.Toplevel):
             775.0,
             anchor="nw",
             text="Add additional IP to Peer:",
-            fill=TEXT_COLOR_WHITE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
 
@@ -419,12 +361,9 @@ class PeerDetailsOverlay(tk.Toplevel):
         self.entry_image_additional_ip_bg = self.canvas.create_image(
             144.0, 808.5, image=self.entry_image_additional_ip
         )
-        self.entry_additional_ip = tk.Entry(
+        self.entry_additional_ip = ttk.Entry(
             frame,
-            bd=0,
-            bg=BACKGROUND_COLOR_ENTRY,
-            fg=TEXT_COLOR_BLACK,
-            highlightthickness=0,
+
         )
         self.entry_additional_ip.place(
             x=45.5, y=796.0, width=197.0, height=23.0
@@ -434,16 +373,12 @@ class PeerDetailsOverlay(tk.Toplevel):
         self.button_image_additional_ip = tk.PhotoImage(
             file=IMAGE_BASE_PATH + 'save.png'
         )
-        button_additional_ip = tk.Button(
+        button_additional_ip = ttk.Button(
             frame,
             image=self.button_image_additional_ip,
-            borderwidth=0,
-            highlightthickness=0,
+
             command=lambda: self.add_additional_ip(),
-            relief="sunken",
-            background=BACKGROUND_COLOR,
-            activebackground=BACKGROUND_COLOR,
-            activeforeground=BACKGROUND_COLOR,
+
         )
         button_additional_ip.place(x=260.0, y=797.0, width=34.0, height=23.0)
 
@@ -475,7 +410,7 @@ class PeerDetailsOverlay(tk.Toplevel):
         if self.peer["other_names"]:
             name = self.peer["other_names"]
         else:
-            name = self.peer["name"] or ""
+            name = self.peer["name"]
         self.data.pin_and_verify(self.peer["id"], name)
         self.return_value = "pin_and_verify"
         self.destroy()
@@ -502,8 +437,6 @@ class PeerDetailsOverlay(tk.Toplevel):
     def show(
         self,
     ) -> Literal['delete', 'pin_and_verify', 'rename', 'additional_ip', None]:
-        self.deiconify()
-        self.wm_transient(self.app.winfo_toplevel())
-        self.wm_protocol("WM_DELETE_WINDOW", self.destroy)
+
         self.wait_window(self)
         return self.return_value

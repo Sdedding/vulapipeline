@@ -1,6 +1,7 @@
 import gettext
 import json
 import tkinter as tk
+from tkinter import ttk
 
 from vula.frontend import DataProvider
 from vula.frontend.components import QRCodeLabel
@@ -14,56 +15,42 @@ from vula.frontend.constants import (
     TEXT_COLOR_WHITE,
 )
 from vula.peer import Descriptor
+
 from .popupMessage import PopupMessage
 
 _ = gettext.gettext
 
 
-class VerificationKeyOverlay(tk.Toplevel):
+class VerificationKeyOverlay(ttk.Frame):
     data = DataProvider()
 
-    def __init__(self, parent: tk.Tk) -> None:
-        tk.Toplevel.__init__(self, parent)
+    def __init__(self, parent: ttk.Frame) -> None:
+        ttk.Frame.__init__(self, parent)
         self.root = parent
 
-        self.wm_transient(self.root)
+
 
         # Root Window properties
-        self.title("Vula | Verification Key")
-        self.geometry("510x510")
-        self.configure(bg=BACKGROUND_COLOR)
+
 
         # Create the Frames for diffrent sections
-        title_frame = tk.Frame(
-            self,
-            bg=BACKGROUND_COLOR,
-            width=510,
-            height=70,
-            pady=10,
-            padx=10,
+
+        text_frame = ttk.Frame(
+            self, width=510, height=50
         )
-        text_frame = tk.Frame(
-            self, bg=BACKGROUND_COLOR, width=510, height=50, padx=20
-        )
-        qr_frame = tk.Frame(self, bg=BACKGROUND_COLOR, width=510, height=390)
+        qr_frame = ttk.Frame(self, width=510, height=390)
 
         # Create the grid for the root TK
         self.grid_rowconfigure(2, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
         # Place the Frames on the grid
-        title_frame.grid(row=0, sticky="nw")
+
         text_frame.grid(row=1, sticky="nw")
         qr_frame.grid(row=2, sticky="nsew")
 
         # Add a Title to the Window
-        tk.Label(
-            title_frame,
-            text="Verification Key",
-            bg=BACKGROUND_COLOR,
-            fg=TEXT_COLOR_HEADER,
-            font=(FONT, FONT_SIZE_HEADER),
-        ).pack()
+
 
         my_descriptors = {
             ip: Descriptor(d)
@@ -88,28 +75,12 @@ class VerificationKeyOverlay(tk.Toplevel):
                 font=(FONT, FONT_SIZE_TEXT_L),
             ).grid(row=0, column=0)
 
-            def command(key: str = vk) -> None:
-                self.add_to_clipbaord(key)
 
-            copy_button = tk.Button(
-                text_frame,
-                text="Copy",
-                image=self.button_image,
-                borderwidth=0,
-                highlightthickness=0,
-                relief="sunken",
-                background=BACKGROUND_COLOR,
-                activebackground=BACKGROUND_COLOR,
-                activeforeground=BACKGROUND_COLOR,
-                command=command,
-            )
-            copy_button.grid(row=0, column=1)
 
             # Verification Key QR Code Image
             qr_data = "local.vula:vk:" + str(vk)
             qr_code = QRCodeLabel(parent=qr_frame, qr_data=qr_data, resize=1)
-            qr_code.configure(background=BACKGROUND_COLOR)
-            qr_code.pack()
+            qr_code.grid(row=0, column=1)
 
     def add_to_clipbaord(self, text: str) -> None:
         self.clipboard_clear()
