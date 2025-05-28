@@ -18,6 +18,10 @@ apt install -y --no-install-recommends \
   python3-tk python3-toml python3-venv python3-wheel python3-xlib python3-yaml \
   python3-zeroconf sudo time wireguard-tools;
 
+# Type checking
+export PATH=$PATH:~/.local/bin;
+apt install -y --no-install-recommends pipx pkg-config libglib2.0-dev libcairo2-dev libgirepository1.0-dev;
+
 # pymonocypher
 apt install -y --no-install-recommends \
   cython3 build-essential python3 python3-venv python3-build debhelper-compat \
@@ -80,4 +84,12 @@ sha256sum */dist/*.deb;
 #29e60950153532744cfe4beccf96a0d6176186a292c1baa93252980fac01ccc4  reunion/dist/python3-rendez_1.2.1-1_all.deb
 #5315cd2269b4aa2e1ae7b4da832afcb124d0a0a294448c9d4ce5bd684af02b02  vula_libnss/dist/python3-vula-libnss-dbgsym_0.0.2024120900-1_amd64.deb
 #a22536cc47e3cbfb4cb55159bf6616ba5724b446d9534c7ffba806e2e0535199  vula_libnss/dist/python3-vula-libnss_0.0.2024120900-1_amd64.deb
+
+# Type checking
+pipx ensurepath; # Add to PATH
+source ~/.bashrc; # Reload PATH
+pipx install pipenv;
+cd /root/vula
+pipenv install --dev --skip-lock || echo "Warning: pipenv install failed, continuing"
+cd /deps
 

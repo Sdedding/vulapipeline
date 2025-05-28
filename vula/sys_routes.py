@@ -5,3 +5,5 @@ supported.
 """
 
 from .sys_pyroute2 import Sys  # noqa: F401
+
+__all__ = ["Sys"]

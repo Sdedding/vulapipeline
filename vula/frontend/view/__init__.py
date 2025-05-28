@@ -10,3 +10,10 @@ lang_translations = gettext.translation(
     domain="ui.view", localedir=locale_path, fallback=True
 )
 lang_translations.install()
+
+__all__ = [
+    "Peers",
+    "Prefs",
+    "locale_path",
+    "lang_translations",
+]

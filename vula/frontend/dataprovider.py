@@ -1,22 +1,23 @@
-from typing import List, TypedDict, Literal, cast, Optional
+from typing import List, TypedDict, Literal, cast, Optional, Any
 
 import pydbus
 import yaml
 
 from vula.common import escape_ansi
 from vula.constants import _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
+from vula.organize import Organize
 
 
 class PeerType(TypedDict):
-    name: Optional[str]
-    id: Optional[str]
-    other_names: Optional[str]
-    status: Optional[str]
-    endpoint: Optional[str]
-    allowed_ips: Optional[str]
-    latest_signature: Optional[str]
-    latest_handshake: Optional[str]
-    wg_pubkey: Optional[str]
+    name: str
+    id: str
+    other_names: str
+    status: str
+    endpoint: str
+    allowed_ips: str
+    latest_signature: str
+    latest_handshake: str
+    wg_pubkey: str
 
 
 class StatusType(TypedDict):
@@ -29,10 +30,10 @@ class PrefsType(TypedDict):
     pin_new_peers: bool
     accept_nonlocal: bool
     auto_repair: bool
-    subnets_allowed: list
-    subnets_forbidden: list
-    iface_prefix_allowed: list
-    local_domains: list
+    subnets_allowed: list[str]
+    subnets_forbidden: list[str]
+    iface_prefix_allowed: list[str]
+    local_domains: list[str]
     ephemeral_mode: bool
     accept_default_route: bool
     record_events: bool
@@ -70,7 +71,7 @@ class DataProvider:
         # Loop over all ids in the list
         for id in ids:
             # Create empty dict for peer
-            peer_dict: PeerType = {
+            peer_dict: dict[str, Optional[str]] = {
                 "name": None,
                 "id": None,
                 "other_names": None,
@@ -95,7 +96,7 @@ class DataProvider:
                 )
                 peer_dict["status"] = peer_lines[3].lstrip().split(": ")[1]
                 peer_dict["endpoint"] = peer_lines[4].lstrip().split(": ")[1]
-                peer_dict["allowed_ips"] = (  # type: ignore
+                peer_dict["allowed_ips"] = (
                     peer_lines[5].lstrip().split(": ")[1]
                 )
                 peer_dict["latest_signature"] = (
@@ -108,7 +109,7 @@ class DataProvider:
             else:
                 peer_dict["status"] = peer_lines[2].lstrip().split(": ")[1]
                 peer_dict["endpoint"] = peer_lines[3].lstrip().split(": ")[1]
-                peer_dict["allowed_ips"] = (  # type: ignore
+                peer_dict["allowed_ips"] = (
                     peer_lines[4].lstrip().split(": ")[1]
                 )
                 peer_dict["latest_signature"] = (
@@ -119,7 +120,7 @@ class DataProvider:
                 )
                 peer_dict["wg_pubkey"] = peer_lines[7].lstrip().split(": ")[1]
 
-            peers.append(peer_dict)
+            peers.append(cast(PeerType, peer_dict))
 
         return peers
 
@@ -157,50 +158,50 @@ class DataProvider:
 
         return status
 
-    def our_latest_descriptors(self):
-        organize = pydbus.SystemBus().get(
+    def our_latest_descriptors(self) -> str:
+        organize: Organize = pydbus.SystemBus().get(
             _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
         )
         return organize.our_latest_descriptors()
 
-    def delete_peer(self, peer_vk):
-        organize = pydbus.SystemBus().get(
+    def delete_peer(self, peer_vk: str) -> None:
+        organize: Organize = pydbus.SystemBus().get(
             _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
         )
         organize.remove_peer(peer_vk)
 
-    def rename_peer(self, peer_vk, name):
-        organize = pydbus.SystemBus().get(
+    def rename_peer(self, peer_vk: str, name: str) -> None:
+        organize: Organize = pydbus.SystemBus().get(
             _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
         )
         organize.set_peer(peer_vk, ["petname"], name)
 
-    def pin_and_verify(self, peer_vk, peer_name):
-        organize = pydbus.SystemBus().get(
+    def pin_and_verify(self, peer_vk: str, peer_name: str) -> None:
+        organize: Organize = pydbus.SystemBus().get(
             _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
         )
         organize.verify_and_pin_peer(peer_vk, peer_name)
 
-    def add_peer(self, peer_vk, ip):
-        organize = pydbus.SystemBus().get(
+    def add_peer(self, peer_vk: str, ip: str) -> None:
+        organize: Organize = pydbus.SystemBus().get(
             _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
         )
         organize.peer_addr_add(peer_vk, ip)
 
-    def set_pref(self, pref, value):
-        organize = pydbus.SystemBus().get(
+    def set_pref(self, pref: str, value: Any) -> str:
+        organize: Organize = pydbus.SystemBus().get(
             _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
         )
         return organize.set_pref(pref, value)
 
-    def add_pref(self, pref, value):
-        organize = pydbus.SystemBus().get(
+    def add_pref(self, pref: str, value: Any) -> str:
+        organize: Organize = pydbus.SystemBus().get(
             _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
         )
         return organize.add_pref(pref, value)
 
-    def remove_pref(self, pref, value):
-        organize = pydbus.SystemBus().get(
+    def remove_pref(self, pref: str, value: Any) -> str:
+        organize: Organize = pydbus.SystemBus().get(
             _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
         )
-        organize.remove_pref(pref, value)
+        return organize.remove_pref(pref, value)

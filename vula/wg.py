@@ -15,13 +15,22 @@ from base64 import b64decode, b64encode  # noqa: F401
 from datetime import timedelta
 from ipaddress import ip_address, ip_network
 from logging import Logger, getLogger
-from typing import Tuple, Self
+from typing import (
+    Self,
+    Optional,
+    Any,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import click
 from pyroute2 import IPRoute
 from pyroute2 import WireGuard as PyRoute2WireGuard
 from pyroute2.netlink import nla as netlink_atom
-from schema import And, Optional, Or, Schema, Use
+from schema import And, Optional as Optional_, Or, Schema, Use
+
 
 from .common import (
     DualUse,
@@ -36,7 +45,7 @@ from .common import (
 )
 
 
-def _wg_interface_list():
+def _wg_interface_list() -> list[str]:
     """
     This returns a list of names of current WireGuard interfaces.
 
@@ -57,28 +66,30 @@ def _wg_interface_list():
 class PeerConfig(schemattrdict, serializable):
     schema = Schema(
         {
-            Optional('unspec'): object,
-            Optional('remove'): bool,
-            Optional('public_key'): And(b64_bytes.with_len(32), Use(str)),
-            Optional('preshared_key'): And(b64_bytes.with_len(32), Use(str)),
-            Optional('endpoint_addr'): And(ip_address, Use(str)),
-            Optional('endpoint_port'): Use(int),
-            Optional('persistent_keepalive'): Use(int),
-            Optional('allowed_ips'): Or(
+            Optional_('unspec'): object,
+            Optional_('remove'): bool,
+            Optional_('public_key'): And(b64_bytes.with_len(32), Use(str)),
+            Optional_('preshared_key'): And(b64_bytes.with_len(32), Use(str)),
+            Optional_('endpoint_addr'): And(ip_address, Use(str)),
+            Optional_('endpoint_port'): Use(int),
+            Optional_('persistent_keepalive'): Use(int),
+            Optional_('allowed_ips'): Or(
                 [And(ip_network, Use(str))],
                 And(Use(comma_separated_Nets), Use(list)),
             ),
-            Optional('stats'): dict(
+            Optional_('stats'): dict(
                 rx_bytes=int, tx_bytes=int, latest_handshake=int
             ),
-            Optional('latest_handshake'): Use(int),
+            Optional_('latest_handshake'): Use(int),
         }
     )
 
     default = dict(remove=False)
 
+    T = TypeVar("T", bound="PeerConfig")
+
     @classmethod
-    def from_netlink(cls, peer):
+    def from_netlink(cls: Type[T], peer: dict[str, Any]) -> T:
         """
         This converts approximately from what pyroute2 produces to what
         pyroute2 consumes (plus the extra key "stats" with two keys).
@@ -128,6 +139,7 @@ class PeerConfig(schemattrdict, serializable):
         Traceback (most recent call last):
         KeyError:
         """
+        res: dict[str, Any]
         res = {
             k.replace('WGPEER_A_', '').lower(): (
                 dict(v) if isinstance(v, netlink_atom) else v
@@ -168,7 +180,7 @@ class PeerConfig(schemattrdict, serializable):
         return cls(res)
 
     @property
-    def wg_show(self: PeerConfig):
+    def wg_show(self: PeerConfig) -> str:
         return "\n  ".join(
             click.style(label, bold=True) + ': ' + str(value)
             for label, value in {
@@ -208,7 +220,7 @@ class PeerConfig(schemattrdict, serializable):
         )
 
     @property
-    def wg_showconf(self: PeerConfig):
+    def wg_showconf(self: PeerConfig) -> str:
         return "[Peer]\n" + "\n".join(
             label + ' = ' + value
             for label, value in {
@@ -254,7 +266,7 @@ class Interface(attrdict, yamlrepr_hl):
     etc.
     """
 
-    # Type information for @DualUse.method
+    # Type informations
     cli: click.Group
 
     def __init__(self, name: str, ipr: Optional[IPRoute] = None):
@@ -277,7 +289,7 @@ class Interface(attrdict, yamlrepr_hl):
         self.query()
 
     @property
-    def _get_link(self):
+    def _get_link(self) -> Union[Any, dict[Any, Any]]:
         """
         >>> custom_ipr = IPRoute()
         >>> link_name = custom_ipr.get_links(0)[0].get_attr('IFLA_IFNAME')
@@ -296,11 +308,11 @@ class Interface(attrdict, yamlrepr_hl):
             return {}
 
     @property
-    def _exists(self):
+    def _exists(self) -> bool:
         return bool(self._ipr.link_lookup(ifname=self.name))
 
     @property
-    def _is_up(self):
+    def _is_up(self) -> bool:
         return bool(self._get_link.get('state') == 'up')
 
     @DualUse.method()
@@ -308,7 +320,9 @@ class Interface(attrdict, yamlrepr_hl):
     @click.argument('private_key', type=str)
     @click.argument('listen_port', type=int)
     @click.argument('fwmark', type=int)
-    def sync_interface(self, private_key, listen_port, fwmark, dryrun):
+    def sync_interface(
+        self, private_key: str, listen_port: int, fwmark: str, dryrun: bool
+    ) -> list[str]:
         """
         Creates, brings up, and configures an interface.
 
@@ -316,7 +330,7 @@ class Interface(attrdict, yamlrepr_hl):
         """
         res = []
 
-        private_key = private_key.encode()
+        private_key_enc: bytes = private_key.encode()
 
         if not self._exists:
             if not dryrun:
@@ -334,7 +348,7 @@ class Interface(attrdict, yamlrepr_hl):
         self.query()
 
         data = dict(
-            private_key=private_key, listen_port=listen_port, fwmark=fwmark
+            private_key=private_key_enc, listen_port=listen_port, fwmark=fwmark
         )
         todo = {}
         for k, v in data.items():
@@ -358,12 +372,12 @@ class Interface(attrdict, yamlrepr_hl):
         self.clear()
         self.log.debug("Fetching interface info for %s", self.name)
         try:
-            res: Tuple = self._wg.info(self.name)
+            res: tuple[dict[str, Any]] = self._wg.info(self.name)
         except Exception as ex:
             self.log.warn("Failed to query interface %r: %r", self.name, ex)
             return self
 
-        data: dict[str, dict | list] = {
+        data = {
             k.replace('WGDEVICE_A_', '').lower(): (
                 dict(v) if isinstance(v, netlink_atom) else v
             )
@@ -376,9 +390,9 @@ class Interface(attrdict, yamlrepr_hl):
         self.update(data)
         return self
 
-    def set(self, **kwargs):
+    def set(self, **kwargs: Any) -> list[str]:
         self.log.debug("Calling WireGuard.set(%r, **%r)", self.name, kwargs)
-        res = self._wg.set(self.name, **kwargs)
+        res: list[str] = self._wg.set(self.name, **kwargs)
         self.log.debug("WireGuard.set(%r, **%r) -> %r", self.name, kwargs, res)
         return res
 
@@ -491,7 +505,7 @@ class Interface(attrdict, yamlrepr_hl):
         return "\n".join(filter(None, res))
 
     @property
-    def peers(self):
+    def peers(self) -> list[PeerConfig]:
         """
         Returns list of peer structures which should be identical to those
         passed to the pyroute2 WireGuard set method, except with an extra
@@ -502,10 +516,10 @@ class Interface(attrdict, yamlrepr_hl):
         This would be a good function to write tests for (and perhaps send
         upstream to pyroute2).
         """
-        return self.get('peers', [])
+        return cast(list[PeerConfig], self.get('peers', []))
 
     @property
-    def _peers_by_pubkey(self):
+    def _peers_by_pubkey(self) -> dict[str, PeerConfig]:
         return {peer['public_key']: peer for peer in self.peers}
 
     @property
@@ -513,7 +527,7 @@ class Interface(attrdict, yamlrepr_hl):
         """
         This returns output similar to the "wg show" command.
         """
-        peers = list(self.peers)
+        peers: list[PeerConfig] = list(self.peers)
         return (
             "\n  ".join(
                 click.style(label, bold=True) + ': ' + str(value)
@@ -574,7 +588,7 @@ class wg(object):
     # Type information for @DualUse.method
     cli: click.Group
 
-    def __init__(self, ctx, *a, **kw):
+    def __init__(self, ctx: click.Context, *a: Any, **kw: Any):
         if ctx.invoked_subcommand is None:
             click.echo(self.show())
 
@@ -590,34 +604,38 @@ class wg(object):
         show_default=True,
     )
     @click.argument('interfaces', type=str, nargs=-1)
-    def show(self, fmt="wireguard", interfaces=()):
+    def show(
+        self, fmt: str = "wireguard", interfaces: Optional[list[str]] = None
+    ) -> Optional[str]:
         """
         Produces output very similar to the "wg show" command.
 
         (The transfer counters, last handshake time, and keepalive interval are
         all formatted differently.)
         """
-        if len(interfaces) == 0:
+        if interfaces is None or len(interfaces) == 0:
             interfaces = _wg_interface_list()
 
-        interfaces = [Interface(name).query() for name in interfaces]
+        _interfaces = [Interface(name).query() for name in interfaces]
 
         if fmt == 'wireguard':
-            return "\n\n".join(iface.wg_show for iface in interfaces)
+            return "\n\n".join(iface.wg_show for iface in _interfaces)
 
         elif fmt == 'yaml':
             return str(
-                yamlrepr_hl({iface.name: iface for iface in interfaces})
+                yamlrepr_hl({iface.name: iface for iface in _interfaces})
             )
 
         elif fmt == 'json':
             return str(
-                jsonrepr_hl({iface.name: iface for iface in interfaces})
+                jsonrepr_hl({iface.name: iface for iface in _interfaces})
             )
+
+        return None
 
     @DualUse.method()
     @click.argument('interface', type=str)
-    def showconf(self, interface):
+    def showconf(self, interface: str) -> str:
         """
         Shows the current configuration of a given WireGuard interface, for use
         with "setconf".
@@ -635,7 +653,14 @@ class wg(object):
     @click.argument('interface', type=str)
     @click.argument('args', type=str, nargs=-1)
     @click.pass_context
-    def set(ctx, self, interface, args=(), **kwargs):
+    def set(
+        ctx: click.Context,
+        self: Any,
+        interface: str,
+        args: tuple[str, ...] = (),
+        /,
+        **kwargs: Any,
+    ) -> str:
         """
         Change the current configuration, add peers, remove peers, or change
         peers.
@@ -652,24 +677,26 @@ class wg(object):
         but it makes testing easier.
         """
         dev = Interface(interface)
-        kwargs = {k: v for k, v in kwargs.items() if v not in (None, ())}
-        current = {}
+        _kwargs: dict[str, Any] = {
+            k: v for k, v in kwargs.items() if v not in (None, ())
+        }
+        current: dict[str, Optional[str | bool]] = {}
         kwargss = []
-        args = list(sum(kwargs.items(), ())) + list(args)
+        _args = list(sum(_kwargs.items(), ())) + list(args)
         allowed = {"private_key", "listen_port", "fwmark"}
         try:
-            while args:
-                key = args.pop(0)
+            while _args:
+                key = _args.pop(0)
                 key = key.replace('-', '_')
                 if key in allowed:
                     allowed.remove(key)
                     if current.get(key) is not None:
                         raise Exception("duplicate argument: %r" % (key,))
-                    current[key] = args.pop(0)
+                    current[key] = _args.pop(0)
                 elif key == "peer":
                     if current:
                         kwargss.append(current)
-                    pk = args.pop(0)
+                    pk = _args.pop(0)
                     current = dict(public_key=pk)
                     allowed = {
                         "preshared_key",
@@ -686,17 +713,20 @@ class wg(object):
             kwargss.append(current)
         except Exception as ex:
             raise Exception("Failed to parse arguments: %r" % (ex,))
-        res = []
+        res: list[Any] = []
+
         if 'public_key' not in kwargss[0]:
             res.append(dev.set(**kwargss.pop(0)))
         for peer in kwargss:
             if 'endpoint' in peer:
+                assert isinstance(peer["endpoint"], str)
                 peer['endpoint_addr'], _, peer['endpoint_port'] = peer[
                     'endpoint'
                 ].rpartition(':')
+                assert isinstance(peer["endpoint_addr"], str)
                 peer['endpoint_addr'] = peer['endpoint_addr'].strip("[]")
                 del peer['endpoint']
-            peer = PeerConfig(peer)._dict()
+            peer = PeerConfig(peer)
             res.append(dev.apply_peerconfig(peer))
         return "\n".join(map(str, res))
 
@@ -714,19 +744,19 @@ class wg(object):
         multiple=True,
     )
     @click.option('--remove', is_flag=True, help="Remove this peer")
-    def set_peer(self, interface, **kwargs):
+    def set_peer(self, interface: str, **kwargs: Any) -> str:
         """
         This allows setting peer information.
         """
-        kwargs = {k: v for k, v in kwargs.items() if v not in (None, ())}
-        if 'allowed_ips' in kwargs:
-            kwargs['allowed_ips'] = list(kwargs['allowed_ips'])
+        _kwargs = {k: v for k, v in kwargs.items() if v not in (None, ())}
+        if 'allowed_ips' in _kwargs:
+            kwargs['allowed_ips'] = list(_kwargs['allowed_ips'])
         wg = Interface(interface)
         return wg.apply_peerconfig(attrdict(kwargs))
 
 
 @click.group()
-def link():
+def link() -> None:
     """
     Link commands
     """
@@ -734,7 +764,7 @@ def link():
 
 @link.command(name='del', short_help="Delete an interface")
 @click.argument('name', type=str)
-def del_(name):
+def del_(name: str) -> None:
     """
     Delete an interface.
 
@@ -745,7 +775,7 @@ def del_(name):
 
 @link.command()
 @click.argument('name', type=str)
-def add(name):
+def add(name: str) -> None:
     """
     Add a new WireGuard interface
     """

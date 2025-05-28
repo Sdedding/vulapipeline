@@ -76,6 +76,9 @@ flake8:
 mypy:
 	pipenv run mypy
 
+pyright:
+	pipenv run pyright
+
 pytest:
 	pipenv run pytest
 

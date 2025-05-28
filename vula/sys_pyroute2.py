@@ -1,9 +1,20 @@
+from __future__ import annotations
+
 import threading
-from ipaddress import ip_address, ip_network
+from typing import Any, TYPE_CHECKING, Optional, Iterator, Never
+from ipaddress import (
+    ip_address,
+    ip_network,
+    IPv4Address,
+    IPv6Address,
+    IPv4Network,
+    IPv6Network,
+)
 from socket import AddressFamily
 
 from pyroute2 import IPRoute, IPRSocket
 
+from .common import attrdict
 from .constants import (
     _LINUX_MAIN_ROUTING_TABLE,
     _IN6_ADDR_GEN_MODE_NONE,
@@ -12,6 +23,10 @@ from .constants import (
     _GW_ROUTES,
 )
 from .wg import Interface as WgInterface
+
+if TYPE_CHECKING:
+    from .organize import Organize
+    from .engine import Result
 
 # FIXME: find where the larger canonical version of this table lives
 SCOPES = {0: 'global', 253: 'static'}
@@ -29,16 +44,16 @@ class Sys(object):
     platforms.
     """
 
-    def __init__(self, organize):
+    def __init__(self, organize: Organize) -> None:
         self.organize = organize
-        self.log = organize.log if organize else None
-        self.wg_name = self.organize.interface if organize else None
+        self.log = organize.log
+        self.wg_name = self.organize.interface
         self.ipr = IPRoute()
-        self.wgi = WgInterface(self.wg_name, ipr=self.ipr)
-        self._monitor_thread = None
+        self.wgi = WgInterface(str(self.wg_name), ipr=self.ipr)
+        self._monitor_thread: Optional[threading.Thread] = None
         self._stop_monitor = False
 
-    def start_monitor(self):
+    def start_monitor(self) -> None:
         self._stop_monitor = False
         if self._monitor_thread is None:
             self._monitor_thread = threading.Thread(
@@ -46,11 +61,12 @@ class Sys(object):
             )  # , args=(1,))
             self._monitor_thread.start()
 
-    def get_stats(self):
+    def get_stats(self) -> dict[str, dict[str, Any]]:
         """
         Get wireguard interface statistics
 
-        >>> s = Sys(None)
+        >>> from unittest import mock
+        >>> s = Sys(mock.MagicMock())
         >>> type(s.get_stats())
         <class 'dict'>
         """
@@ -64,7 +80,7 @@ class Sys(object):
         """
         self._stop_monitor = True
 
-    def _monitor(self):
+    def _monitor(self) -> None:
         ip = IPRSocket()
         ip.bind()
         while True:
@@ -100,13 +116,15 @@ class Sys(object):
         ip.close()
 
     @property
-    def idx_to_link_name(self):
+    def idx_to_link_name(self) -> dict[str, str]:
         return {
             L['index']: dict(L['attrs'])['IFLA_IFNAME']
             for L in self.ipr.get_links()
         }
 
-    def _get_all_addrs(self):
+    def _get_all_addrs(
+        self,
+    ) -> Iterator[tuple[IPv4Address | IPv6Address, dict[str, str], str]]:
         links = self.idx_to_link_name
         addrs = self.ipr.get_addr()
         for a in addrs:
@@ -114,10 +132,17 @@ class Sys(object):
             iface = links[a['index']]
             yield addr, a, iface
 
-    def _get_system_state(self):
+    def _get_system_state(
+        self,
+    ) -> tuple[
+        dict[IPv4Network | IPv6Network, list[IPv4Address | IPv6Address]],
+        dict[str, list[IPv4Address | IPv6Address]],
+        list[set[Any]],
+        bool,
+    ]:
         "WIP"
 
-        gateways = list(
+        gateways: list[set[Any]] = list(
             set(
                 r.get_attrs('RTA_GATEWAY')[0]
                 for r in self.ipr.get_routes()
@@ -125,12 +150,14 @@ class Sys(object):
             )
         )
 
-        current_subnets = {}
-        current_interfaces = {}
+        current_subnets: dict[
+            IPv4Network | IPv6Network, list[IPv4Address | IPv6Address]
+        ] = {}
+        current_interfaces: dict[str, list[IPv4Address | IPv6Address]] = {}
 
         addrs = list(self._get_all_addrs())
 
-        has_v6 = any(addr for addr in addrs if addr[0].version == 6)
+        has_v6: bool = any(addr for addr in addrs if addr[0].version == 6)
 
         for addr, a, iface in addrs:
             if addr.version == 4 and not self.organize.v4_enabled:
@@ -144,7 +171,7 @@ class Sys(object):
                 ]
             ):
                 continue
-            this_subnet = ip_network(
+            this_subnet: IPv4Network | IPv6Network = ip_network(
                 "%s/%s" % (addr, a['prefixlen']), strict=False
             )
             if not any(
@@ -158,10 +185,12 @@ class Sys(object):
 
         return current_subnets, current_interfaces, gateways, has_v6
 
-    def get_new_system_state(self, reason=None):
+    def get_new_system_state(self, reason: str = "") -> list[Never] | Result:
         return self.organize.get_new_system_state(reason)
 
-    def link_add(self, name, kind, dryrun=False):
+    def link_add(
+        self, name: str, kind: str, dryrun: bool = False
+    ) -> list[str]:
         existing = self.ipr.get_links(ifname=name)
         if existing and (
             dict(existing[0].get_attr('IFLA_LINKINFO')['attrs'])[
@@ -198,7 +227,7 @@ class Sys(object):
             "ip link set dev {name} addrgenmode none",
         ]
 
-    def sync_interfaces(self, dryrun=False):
+    def sync_interfaces(self, dryrun: bool = False) -> list[str]:
         return (
             self.wgi.sync_interface(
                 private_key=str(self.organize._keys.wg_Curve25519_sec_key),
@@ -215,7 +244,9 @@ class Sys(object):
             )
         )
 
-    def addr_add(self, addr, dev, mask, dryrun=False):
+    def addr_add(
+        self, addr: str, dev: str, mask: int, dryrun: bool = False
+    ) -> list[str]:
         res = []
         if not [
             a
@@ -229,7 +260,7 @@ class Sys(object):
                 self.ipr.addr("add", index=oif, address=str(addr), mask=mask)
         return res
 
-    def sync_peer(self, vk: str, dryrun: bool = False):
+    def sync_peer(self, vk: str, dryrun: bool = False) -> str:
         """
         Syncs peer's wg config and routes. Returns a string.
         """
@@ -263,7 +294,7 @@ class Sys(object):
         result = filter(None, res)
         return "\n".join(result)
 
-    def sync_iprules(self, dryrun=False):
+    def sync_iprules(self, dryrun: bool = False) -> list[str]:
         routing_table = self.organize.table
         mark = self.organize.fwmark
         priority = self.organize.ip_rule_priority
@@ -301,12 +332,18 @@ class Sys(object):
                 )
         return res
 
-    def remove_wg_peer(self, pk, dryrun=False):
+    def remove_wg_peer(self, pk: str, dryrun: bool = False) -> str:
         return self.wgi.apply_peerconfig(
-            dict(public_key=pk, remove=True), dryrun
+            attrdict(public_key=pk, remove=True), dryrun
         )
 
-    def remove_routes(self, dests, table=None, dev=None, dryrun=False):
+    def remove_routes(
+        self,
+        dests: Optional[tuple[str, ...]],
+        table: Optional[int] = None,
+        dev: Optional[str] = None,
+        dryrun: bool = False,
+    ) -> str:
         """
         Idempotently remove route(s).
 
@@ -331,7 +368,12 @@ class Sys(object):
             )
         return "\n".join(res)
 
-    def get_route_entries(self, dests=None, table=None, dev=None):
+    def get_route_entries(
+        self,
+        dests: Optional[tuple[str, ...]] = None,
+        table: Optional[int] = None,
+        dev: Optional[str] = None,
+    ) -> list[dict[str, str]]:
         """
         Query for routes. Returns a dict suitable for applying (with **) to
         ipr's route del function.
@@ -367,7 +409,7 @@ class Sys(object):
         ]
         return res
 
-    def remove_unknown(self, dryrun=False):
+    def remove_unknown(self, dryrun: bool = False) -> list[str]:
         """
         This is currently the code path where disabled and removed peers get
         their routes and wg peer configs removed. In the future, deferred
@@ -466,7 +508,9 @@ class Sys(object):
 
         return res
 
-    def sync_routes(self, dests, table, dryrun=False):
+    def sync_routes(
+        self, dests: tuple[str, ...], table: int, dryrun: bool = False
+    ) -> str:
         """
         Takes a list of CIDR notation dests and a routing table, and ensures
         those routes are configured there. Returns a string.

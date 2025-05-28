@@ -16,7 +16,7 @@ _VULA_ULA_SUBNET: IPv4Network | IPv6Network = ip_network("fdff:ffff:ffdf::/48")
 # Set an upper boundary of 1kB for the cache
 _LRU_CACHE_MAX_SIZE: int = 1024
 
-_WG_SERVICES: List = [
+_WG_SERVICES: List[str] = [
     "vula-publish.service",
     "vula-organize.service",
     "vula-discover.service",

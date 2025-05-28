@@ -18,12 +18,12 @@ steps:
 
   mypy:
     depends_on: []
-    image: ubuntu:plucky
+    image: python:3.10-bookworm
     commands:
       - export CI=true
       - PATH=$PATH:~/.local/bin
-      - ./misc/install-ci-mypy.sh
-      - mypy test vula
+      - ./misc/install-ci-deps.sh
+      - make mypy
 
   check_test:
     depends_on: []

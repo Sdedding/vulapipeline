@@ -60,8 +60,12 @@ pipenv run black vula
 
 ### Typing hints
 
-```
+```bash
+# mypy --strict (source of truth)
 pipenv run mypy
+
+# pyright (for cross verification, has remaining issues)
+pipenv run pyright
 ```
 
 ### Linting with flake8
@@ -93,6 +97,16 @@ Generate an HTML report (in `htmlcov/index.html`) which shows missed lines and s
 ```
 pipenv run pytest --cov --cov-report=html
 ```
+
+### Using pre-commit hooks
+
+If you are a fan of pre-commit hooks you can set them up like this:
+```
+pip install pre-commit
+pre-commit install
+```
+
+Currently only `mypy --strict` is checked, additional checks maybe added in the future. 
 
 # CI/CD setup
 

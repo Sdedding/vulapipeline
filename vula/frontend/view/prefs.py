@@ -194,7 +194,7 @@ class Prefs(Frame):
     def get_prefs(self) -> None:
         self.prefs = self.data.get_prefs()
 
-    def toggle(self, event: Event) -> None:
+    def toggle(self, event: Event) -> None:  # type: ignore[type-arg]
         """
         Toggle bool button value
         """
@@ -203,13 +203,13 @@ class Prefs(Frame):
         elif event.widget["text"] == "False":
             event.widget.config(text="True", bg=TEXT_COLOR_GREEN)
 
-    def bool_on_enter(self, event: Event) -> None:
+    def bool_on_enter(self, event: Event) -> None:  # type: ignore[type-arg]
         if event.widget["text"] == "True":
             event.widget.config(bg=TEXT_COLOR_BLACK)
         else:
             event.widget.config(bg=TEXT_COLOR_BLACK)
 
-    def bool_on_leave(self, event: Event) -> None:
+    def bool_on_leave(self, event: Event) -> None:  # type: ignore[type-arg]
         if event.widget["text"] == "True":
             event.widget.config(bg=TEXT_COLOR_GREEN)
         else:

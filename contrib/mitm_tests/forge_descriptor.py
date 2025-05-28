@@ -7,15 +7,16 @@ from nacl.encoding import Base64Encoder
 from vula.csidh import ctidh_parameters, ctidh
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+from typing import Any
 
 
 class VulaKeys:
-    def __init__(self):
+    def __init__(self) -> None:
         self._ed25519_keypair_gen()
         self._ctidh_keypair_gen()
         self._x25519_keypair_gen()
 
-    def _ed25519_keypair_gen(self):
+    def _ed25519_keypair_gen(self) -> None:
         """
         Generate a seed for the Ed25519 verify keypair used by vula.
         """
@@ -26,14 +27,14 @@ class VulaKeys:
         verify_key = signing_key.verify_key
         self._ed25519_public = b64encode(verify_key.encode()).decode()
 
-    def _ctidh_keypair_gen(self):
+    def _ctidh_keypair_gen(self) -> None:
         self._ctidh = ctidh(ctidh_parameters)
         sk = self._ctidh.generate_secret_key()
         pk = self._ctidh.public_key(sk)
         self._ctidh_public = b64encode(pk).decode()
         self._ctidh_private = b64encode(sk).decode()
 
-    def _x25519_keypair_gen(self):
+    def _x25519_keypair_gen(self) -> None:
         temp_key = X25519PrivateKey.generate()
         private = b64encode(
             temp_key.private_bytes(
@@ -125,7 +126,7 @@ def forge_descriptor(
     return desc.sign(vula_keys.get_ed25519_private_raw())
 
 
-def serialize_forged_descriptor(forged_descriptor: Descriptor) -> dict:
+def serialize_forged_descriptor(forged_descriptor: Descriptor) -> dict[str, Any]:
     """
     serialize forged descriptor
     :param forged_descriptor: Descriptor object

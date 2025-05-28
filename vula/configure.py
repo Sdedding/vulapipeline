@@ -9,7 +9,7 @@ from base64 import b64encode
 from logging import Logger, getLogger
 from os import geteuid, mkdir, system
 from sys import platform
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 import click
 from click import Context
@@ -49,7 +49,7 @@ from .notclick import DualUse
     show_default=True,
     help="YAML configuration file for cryptographic keys",
 )
-@click.pass_context
+@click.pass_context  # type: ignore[arg-type]
 class Configure(attrdict):
     cli: click.Group
 
@@ -60,27 +60,27 @@ class Configure(attrdict):
         self.update(**kw)
         self.log: Logger = getLogger()
         self.log.debug("Debug level logging enabled")
-        self._ctidh = None
+        self._ctidh: Optional[ctidh] = None
         self._ctx = ctx
 
-    def _ensure_root(self):
+    def _ensure_root(self) -> None:
         if geteuid() != 0:
             self.log.error(
                 "unable to configure: needs administrative privileges"
             )
             raise Exit(1)
 
-    def _ensure_linux(self):
+    def _ensure_linux(self) -> None:
         if platform.startswith("linux"):
             if daemon.booted() != 1:
                 self.log.error("no systemd: manual configuration required")
                 raise Exit(2)
 
     @DualUse.method()
-    def wg_quick_config(self):
+    def wg_quick_config(self) -> None:
         pass
 
-    def _curve25519_keypair_gen(self):
+    def _curve25519_keypair_gen(self) -> Tuple[str, str]:
         """
         Generate Curve25519 keypair and return *private* and *public* base64
         encoded values.
@@ -106,7 +106,7 @@ class Configure(attrdict):
         ).decode("utf-8")
         return private, public
 
-    def _ed25519_keypair_gen(self):
+    def _ed25519_keypair_gen(self) -> Tuple[str, str]:
         """
         Generate a seed for the Ed25519 verify keypair used by vula.
 
@@ -118,7 +118,7 @@ class Configure(attrdict):
         public = b64encode(verify_key.encode()).decode()
         return private, public
 
-    def _ctidh_keypair_gen(self):
+    def _ctidh_keypair_gen(self) -> Tuple[str, str]:
         if self._ctidh is None:
             self.log.debug("Initializing CTIDH")
             self._ctidh = ctidh(ctidh_parameters)
@@ -154,7 +154,7 @@ class Configure(attrdict):
         return keys
 
     @DualUse.method()
-    def genkeys(self):
+    def genkeys(self) -> KeyFile:
         keys = KeyFile(
             zip(
                 (
@@ -178,7 +178,7 @@ class Configure(attrdict):
         self,
         mode: str = "replace",
         restart: bool = False,
-    ):
+    ) -> None:
         """
         Use DBus to check the status of, enable, and restart systemd services.
         """
@@ -216,7 +216,7 @@ class Configure(attrdict):
         system_bus.close()
 
     @DualUse.method()
-    def configure_system(self):
+    def configure_system(self) -> None:
         self._ensure_root()
         if platform.startswith("linux"):
             self.log.info("Adding firewall exception with ufw")
@@ -238,7 +238,7 @@ class Configure(attrdict):
             system("wg-quick down vula")
 
     @DualUse.method()
-    def nsswitch(self):
+    def nsswitch(self) -> None:
         self._ensure_root()
         self.log.info("configuring nsswitch to respect our petname system")
         system(
@@ -247,17 +247,20 @@ class Configure(attrdict):
         )
 
     @DualUse.method()
-    def systemd_restart(self):
+    def systemd_restart(self) -> None:
         self._ensure_root()
         if platform.startswith("linux"):
-            _reconfigure_restart_systemd_services()  # noqa: F821
-            _reconfigure_restart_systemd_services(restart=True)  # noqa: F821
+            self._reconfigure_restart_systemd_services()  # noqa: F821
+            self._reconfigure_restart_systemd_services(
+                restart=True
+            )  # noqa: F821
             time.sleep(1.5)
         # FIXME: this causes a non-zero exit status sometimes, if the organize
         # service is "activating" instead of "active". the sleep could be
         # increased, or we could perhaps hang around to find out what happened
         # via some dbus event or something?
-        self._ctx.invoke(StatusCommand)
+        if self._ctx is not None:
+            self._ctx.invoke(StatusCommand)
 
 
 main = Configure.cli

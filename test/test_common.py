@@ -6,11 +6,11 @@ import vula.common
 
 
 class Testyamlfile:
-    def test_from_yaml_file_nonexisting(self):
+    def test_from_yaml_file_nonexisting(self) -> None:
         with pytest.raises(FileNotFoundError):
             vula.common.yamlfile.from_yaml_file("non-existing-file.yml")
 
-    def test_from_yaml_file(self):
+    def test_from_yaml_file(self) -> None:
         """
         Note: from_yaml_file uses click to open the file. Click 8.x uses
         builtins.open while click 7.x uses io.open, so we mock both here.

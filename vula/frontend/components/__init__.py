@@ -9,3 +9,7 @@ lang_translations = gettext.translation(
     domain="ui.components", localedir=locale_path, fallback=True
 )
 lang_translations.install()
+
+__all__ = [
+    "QRCodeLabel",
+]

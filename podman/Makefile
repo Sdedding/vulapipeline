@@ -423,6 +423,16 @@ test-active-adversary: testnet-mitm-start
 pytest: start
 	podman exec -it $(test1) pytest-3
 
+.PHONY: mypy
+mypy: .deps-$(dist)-stamp
+	@echo "Checking vula project types using mypy"
+	podman run $(podman_args) --rm -it vula-deps-$(dist) $(bin_sh) -c "pipx run pipenv run mypy"
+
+.PHONY: pyright
+pyright: .deps-$(dist)-stamp
+	@echo "Checking vula project types using pyright"
+	podman run $(podman_args) --rm -it vula-deps-$(dist) $(bin_sh) -c "pipx run pipenv run pyright"
+
 .PHONY: status
 status: start
 	$(for_n_hosts)\

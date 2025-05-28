@@ -1,17 +1,11 @@
 import tempfile
 import tkinter as tk
 from tkinter import ttk
-import types
-from typing import Optional
 
 from vula.frontend.constants import BACKGROUND_COLOR, TEXT_COLOR_WHITE
+from vula.utils import optional_import
 
-qrcode: Optional[types.ModuleType]
-
-try:
-    import qrcode
-except ImportError:
-    qrcode = None
+qrcode = optional_import("qrcode")
 
 
 class QRCodeLabel(ttk.Label):
@@ -29,5 +23,7 @@ class QRCodeLabel(ttk.Label):
             )
             img.save(tmp_file_name)
             self.image = tk.PhotoImage(file=tmp_file_name)
-            self.image = self.image.subsample(resize, resize)  # type: ignore
+            self.image = self.image.subsample(
+                resize, resize  # type: ignore[arg-type, unused-ignore]
+            )
             self.configure(image=self.image)
