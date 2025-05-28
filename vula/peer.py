@@ -5,13 +5,22 @@ import time
 from base64 import b64encode
 from datetime import timedelta
 from io import StringIO
-from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network
-from typing import List, Self, Any
+from ipaddress import (
+    IPv4Address,
+    IPv6Address,
+    ip_address,
+    ip_network,
+    IPv4Network,
+    IPv6Network,
+)
+from typing import List, Any, Optional, TextIO, cast
+from typing_extensions import Self
 
 import click
+from click import Context
 from nacl.exceptions import BadSignatureError
 from nacl.signing import SigningKey, VerifyKey
-from schema import And, Optional, Regex, Schema, Use
+from schema import And, Optional as Optional_, Regex, Schema, Use
 
 from .constants import _VULA_ULA_SUBNET
 
@@ -89,9 +98,9 @@ class Descriptor(schemattrdict, serializable):
 
     schema = Schema(
         {
-            Optional('p'): use_ip_address,
-            Optional('v4a'): use_comma_separated_IPv4s,
-            Optional('v6a'): use_comma_separated_IPv6s,
+            Optional_('p'): use_ip_address,
+            Optional_('v4a'): use_comma_separated_IPv4s,
+            Optional_('v6a'): use_comma_separated_IPv6s,
             'pk': b64_bytes.with_len(32),
             'c': b64_bytes.with_len(64),
             'hostname': And(
@@ -109,7 +118,7 @@ class Descriptor(schemattrdict, serializable):
                 comma_separated_Nets
             ),  # AllowedIPs may be set from this in the future; fixme
             'e': Flexibool,
-            Optional('s'): b64_bytes.with_len(64),
+            Optional_('s'): b64_bytes.with_len(64),
         }
     )
 
@@ -132,7 +141,7 @@ class Descriptor(schemattrdict, serializable):
         for _k, v in props.items():
             k = _k.decode()
             typ = cls.schema._schema.get(k) or cls.schema._schema.get(
-                Optional(k)
+                Optional_(k)
             )
             if typ := packable_types.get(typ):
                 # here we have a type that knows how to pack and unpack itself
@@ -144,7 +153,7 @@ class Descriptor(schemattrdict, serializable):
         return cls(**data)
 
     @property
-    def as_zeroconf_properties(self):
+    def as_zeroconf_properties(self) -> dict[bytes, bytes]:
         r"""
         This returns the descriptor as a dictionary of bytes, for sending to
         zeroconf.
@@ -162,7 +171,7 @@ class Descriptor(schemattrdict, serializable):
         data = {}
         for k, v in self.items():
             typ = self.schema._schema.get(k) or self.schema._schema.get(
-                Optional(k)
+                Optional_(k)
             )
             data[k.encode()] = (
                 v.packed if packable_types.get(typ) else str(v).encode()
@@ -179,8 +188,8 @@ class Descriptor(schemattrdict, serializable):
         True
         """
         try:
-            split_desc: List = desc.split(";")
-            dir_desc: dict = dict(
+            split_desc: List[str] = desc.split(";")
+            dir_desc: dict[str, str] = dict(
                 val.split("=", maxsplit=1)
                 for val in [kv.strip() for kv in split_desc]
                 if len(val) > 1
@@ -189,7 +198,6 @@ class Descriptor(schemattrdict, serializable):
         except ValueError:
             raise
             # log.info("Unable to parse descriptor: %s (%r)", error, descriptor)
-            return None
         return descriptor
 
     def _build_sig_buf(self: Descriptor) -> bytes:
@@ -197,11 +205,11 @@ class Descriptor(schemattrdict, serializable):
             "%s=%s;" % (k, v) for k, v in sorted(self.items()) if k != 's'
         ).encode()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return " ".join("%s=%s;" % kv for kv in sorted(self.items()))
 
     @property
-    def id(self):
+    def id(self) -> str:
         """
         This returns the peer ID (aka the verify key, base64-encoded).
         >>> from vula.constants import _TEST_DESC_UNSIGNED
@@ -212,23 +220,23 @@ class Descriptor(schemattrdict, serializable):
         return str(self.vk)
 
     @property
-    def ephemeral(self):
+    def ephemeral(self) -> bool:
         """
         >>> from vula.constants import _TEST_DESC_UNSIGNED
         >>> d = Descriptor.parse(_TEST_DESC_UNSIGNED)
         >>> d.ephemeral
         0
         """
-        return self.e
+        return cast(bool, self.e)
 
     @property
-    def valid(self):
+    def valid(self) -> bool:
         # XXX: placeholder until this is merged with other class with signature validation etc
         # ^^^
         return self.verify_signature()
 
     @property
-    def IPv4addrs(self):
+    def IPv4addrs(self) -> List[IPv4Address]:
         """
         >>> from vula.constants import _TEST_DESC_UNSIGNED
         >>> d = Descriptor.parse(_TEST_DESC_UNSIGNED)
@@ -238,7 +246,7 @@ class Descriptor(schemattrdict, serializable):
         return list(getattr(self, 'v4a', ()))
 
     @property
-    def IPv6addrs(self):
+    def IPv6addrs(self) -> List[IPv6Address]:
         """
         >>> from vula.constants import _TEST_DESC_UNSIGNED
         >>> d = Descriptor.parse(_TEST_DESC_UNSIGNED)
@@ -250,10 +258,10 @@ class Descriptor(schemattrdict, serializable):
         return list(getattr(self, 'v6a', ()))
 
     @property
-    def all_addrs(self):
+    def all_addrs(self) -> List[IPv4Address | IPv6Address]:
         return self.IPv6addrs + self.IPv4addrs
 
-    def sign(self, seed) -> Descriptor:
+    def sign(self, seed: bytes) -> Descriptor:
         signing_key: SigningKey = SigningKey(seed=seed)
         buf_to_sign: bytes = self._build_sig_buf()
         sig: bytes = signing_key.sign(buf_to_sign).signature
@@ -290,7 +298,7 @@ class Descriptor(schemattrdict, serializable):
         except BadSignatureError:
             return False
 
-    def make_peer(self: Descriptor, **kwargs) -> Peer:
+    def make_peer(self: Descriptor, **kwargs: Any) -> Peer:
         peer = dict(
             descriptor=self,
             petname="",
@@ -306,7 +314,7 @@ class Descriptor(schemattrdict, serializable):
         return Peer(peer)
 
     @property
-    def qr_code(self):
+    def qr_code(self) -> str:
         """
         This generates a QR-Code and prints it.
         The data that is encoded within the QR-Code is
@@ -317,6 +325,8 @@ class Descriptor(schemattrdict, serializable):
         global _qrcode
         if _qrcode is None:
             import qrcode as _qrcode
+
+        assert _qrcode is not None
         sio = StringIO()
         qr = _qrcode.QRCode()
         qr.add_data(data="local.vula:desc:" + str(self))
@@ -331,14 +341,14 @@ class Peer(schemattrdict):
             {
                 'descriptor': Use(Descriptor),
                 'petname': str,
-                'nicknames': {Optional(str): Flexibool},
-                'IPv4addrs': {Optional(Use(IPv4Address)): Flexibool},
-                'IPv6addrs': {Optional(Use(IPv6Address)): Flexibool},
+                'nicknames': {Optional_(str): Flexibool},
+                'IPv4addrs': {Optional_(Use(IPv4Address)): Flexibool},
+                'IPv6addrs': {Optional_(Use(IPv6Address)): Flexibool},
                 'enabled': Flexibool,
                 'verified': Flexibool,
                 'pinned': Flexibool,
-                Optional('use_as_gateway'): Flexibool,
-                Optional('_allow_unsigned_descriptor'): Flexibool,
+                Optional_('use_as_gateway'): Flexibool,
+                Optional_('_allow_unsigned_descriptor'): Flexibool,
             },
             # lambda peer:
             # peer['descriptor'].verify_signature() or peer.get('_allow_unsigned_descriptor')
@@ -350,17 +360,17 @@ class Peer(schemattrdict):
     default = None
 
     @property
-    def id(self):
+    def id(self) -> str:
         "This returns the peer ID (aka the verify key, as a base64 string)"
-        return self.descriptor.id
+        return str(self.descriptor.id)
 
     @property
-    def wg_pk(self):
+    def wg_pk(self) -> Any:
         "WireGuard public key."
         return self.descriptor.pk
 
     @property
-    def name(self):
+    def name(self) -> str:
         """
         This returns the best name, for display purposes.
 
@@ -381,7 +391,7 @@ class Peer(schemattrdict):
         )
 
     @property
-    def other_names(self):
+    def other_names(self) -> List[str]:
         """
         Returns a sorted list of all names other than self.name
 
@@ -398,7 +408,7 @@ class Peer(schemattrdict):
         )
 
     @property
-    def name_and_id(self):
+    def name_and_id(self) -> str:
         """
         Returns the name and ID of the peer.
 
@@ -411,7 +421,7 @@ class Peer(schemattrdict):
         return "%s (%s)" % (self.name, self.id)
 
     @property
-    def enabled_names(self):
+    def enabled_names(self) -> List[str]:
         return sorted(
             set(
                 ([self.petname] if self.petname else [])
@@ -420,7 +430,7 @@ class Peer(schemattrdict):
         )
 
     @property
-    def enabled_ips(self):
+    def enabled_ips(self) -> List[IPv4Address | IPv6Address]:
         return (
             [self.primary_ip]
             + [ip for ip, on in self.IPv6addrs.items() if on]
@@ -428,21 +438,21 @@ class Peer(schemattrdict):
         )
 
     @property
-    def disabled_ips(self):
+    def disabled_ips(self) -> List[IPv4Address | IPv6Address]:
         return [ip for ip, on in self.IPv6addrs.items() if not on] + [
             ip for ip, on in self.IPv4addrs.items() if not on
         ]
 
     @property
-    def primary_ip(self):
-        return self.descriptor.p
+    def primary_ip(self) -> IPv4Address | IPv6Address:
+        return cast(IPv4Address | IPv6Address, self.descriptor.p)
 
     @property
-    def enabled_ips_str(self):
+    def enabled_ips_str(self) -> List[str]:
         return [str(ip) for ip in self.enabled_ips]
 
     @property
-    def routable_ips(self):
+    def routable_ips(self) -> List[IPv4Address | IPv6Address]:
         return [
             ip
             for ip in self.enabled_ips
@@ -450,14 +460,14 @@ class Peer(schemattrdict):
         ]
 
     @property
-    def routes(self):
+    def routes(self) -> List[IPv4Network | IPv6Network]:
         return [
             ip_network("%s/%s" % (ip, ip.max_prefixlen))
             for ip in self.routable_ips
         ]
 
     @property
-    def _wg_allowed_ips(self):
+    def _wg_allowed_ips(self) -> List[str]:
         res = [
             ip_network("%s/%s" % (ip, ip.max_prefixlen))
             for ip in self.routable_ips
@@ -468,15 +478,15 @@ class Peer(schemattrdict):
         return list(map(str, res))
 
     @property
-    def endpoint_addr(self):
+    def endpoint_addr(self) -> IPv4Address | IPv6Address:
         if ips := sort_LL_first(
-            i for i in self.enabled_ips if i not in _VULA_ULA_SUBNET
+            list(i for i in self.enabled_ips if i not in _VULA_ULA_SUBNET)
         ):
             return ips[0]
         return ip_address('0.0.0.0')
 
     @property
-    def endpoint(self):
+    def endpoint(self) -> str:
         """
         Return endpoint host:port address, for display purposes.
         """
@@ -485,7 +495,7 @@ class Peer(schemattrdict):
             self.descriptor.port,
         )
 
-    def wg_config(self: Peer, ctidh_psk):
+    def wg_config(self: Peer, ctidh_psk: str) -> attrdict:
         return attrdict(
             public_key=str(self.descriptor.pk),
             endpoint_addr=str(self.endpoint_addr),
@@ -494,7 +504,7 @@ class Peer(schemattrdict):
             preshared_key=ctidh_psk,
         )
 
-    def show(self, stats=None):
+    def show(self, stats: Optional[dict[str, Any]] = None) -> str:
         green_or_yellow = (
             green if self.pinned and self.verified and self.enabled else yellow
         )
@@ -569,13 +579,15 @@ class Peers(yamlrepr, queryable, schemadict):
 
     schema = Schema(
         {
-            Optional(And(str, Length(44))): Use(Peer),
+            Optional_(And(str, Length(44))): Use(Peer),
         },
     )
 
-    def with_hostname(self: Peers, name: str):
+    def with_hostname(self: Peers, name: str) -> Peer:
         "Return peer with given hostname (among all of its enabled names)"
-        res = self.limit(enabled=True).by('nicknames').get(name, [])
+        res: List[Peer] = (
+            self.limit(enabled=True).by('nicknames').get(name, [])
+        )
         if len(res) > 1:
             raise Bug(
                 # this should not be possible, as both the state logic and
@@ -587,10 +599,10 @@ class Peers(yamlrepr, queryable, schemadict):
             raise KeyError("Hostname %r not found." % (name,))
         return res[0]
 
-    def with_ip(self, ip):
+    def with_ip(self, ip: str | IPv4Address | IPv6Address) -> Peer:
         "Return peer with given IP address"
         ip = ip_address(ip)
-        res = self.limit(enabled=True).by('enabled_ips').get(ip, [])
+        res: List[Peer] = self.limit(enabled=True).by('enabled_ips').get(ip, [])  # type: ignore[call-overload]
         if len(res) > 1:
             raise ConsistencyError(
                 # this should also not be possible, because the state logic
@@ -603,7 +615,7 @@ class Peers(yamlrepr, queryable, schemadict):
         return res[0]
 
     @property
-    def conflicts(self):
+    def conflicts(self) -> str:
         "returns comma-separated list of colliding peer ids"
         enabled_gws = list(
             self.limit(use_as_gateway=True, enabled=True).values()
@@ -618,7 +630,7 @@ class Peers(yamlrepr, queryable, schemadict):
         )
         return res
 
-    def conflicts_for_descriptor(self, desc):
+    def conflicts_for_descriptor(self, desc: Descriptor) -> list[Peer]:
         """
         Returns list of enabled vula peers where a descriptor has a conflicting
         wg_pk, hostname, or IP address field (ignoring itself).
@@ -633,14 +645,14 @@ class Peers(yamlrepr, queryable, schemadict):
                 + self.limit(enabled=True).by('wg_pk').get(desc.pk, [])
                 + sum(
                     (
-                        self.limit(enabled=True).by('IPv4addrs').get(ip, [])
+                        self.limit(enabled=True).by('IPv4addrs').get(ip, [])  # type: ignore[call-overload]
                         for ip in desc.IPv4addrs
                     ),
                     [],
                 )
                 + sum(
                     (
-                        self.limit(enabled=True).by('IPv6addrs').get(ip, [])
+                        self.limit(enabled=True).by('IPv6addrs').get(ip, [])  # type: ignore[call-overload]
                         for ip in desc.IPv6addrs
                     ),
                     [],
@@ -649,11 +661,11 @@ class Peers(yamlrepr, queryable, schemadict):
             }.values()
         )
 
-    def query(self, query):
+    def query(self, query: str) -> Optional[Peer]:
         """
         Returns peer by vk, hostname, or IP. None if no match.
         """
-        peer = (
+        peer: Optional[List[Peer]] = (
             self.by('id').get(query)
             or self.limit(enabled=True).by('enabled_names').get(query)
             or self.limit(enabled=True).by('enabled_ips_str').get(query)
@@ -665,7 +677,7 @@ class Peers(yamlrepr, queryable, schemadict):
             return None
 
 
-def _ac_get_peer_ids(ctx, args, incomplete):
+def _ac_get_peer_ids(ctx: Context, args: Any, incomplete: Any) -> List[str]:
     organize = (
         ctx.meta.get('Organize', {}).get('magic_instance')
         or organize_dbus_if_active()
@@ -699,7 +711,7 @@ class PeerCommands(object):
     # Type information for @DualUse.method
     cli: click.Group
 
-    def __init__(self, ctx):
+    def __init__(self, ctx: Context):
         self.organize = (
             ctx.meta.get('Organize', {}).get('magic_instance')
             or organize_dbus_if_active()
@@ -738,7 +750,13 @@ class PeerCommands(object):
         flag_value='enabled',
         help="Show only enabled peers",
     )
-    def show(self, peers=(), which=None, descriptor=False, qrcode=False):
+    def show(
+        self,
+        peers: tuple[str, ...] = (),
+        which: str | None = None,
+        descriptor: bool = False,
+        qrcode: bool = False,
+    ) -> None:
         """
         Show peer information.
 
@@ -780,7 +798,7 @@ class PeerCommands(object):
 
     @DualUse.method(short_help="Import peer descriptors", name='import')
     @click.argument('file', type=click.File(), default='-')
-    def import_(self, file):
+    def import_(self, file: TextIO) -> None:
         """
         Import peer descriptors.
 
@@ -815,7 +833,7 @@ class PeerCommands(object):
         done with the "peer show" command.
         """
 
-        def __init__(self, ctx):
+        def __init__(self, ctx: Context):
             self.organize = (
                 ctx.meta.get('Organize', {}).get('magic_instance')
                 or organize_dbus_if_active()
@@ -824,7 +842,7 @@ class PeerCommands(object):
         @DualUse.method()
         @click.argument('vk', type=str)
         @click.argument('ip', type=str)
-        def add(self, vk, ip):
+        def add(self, vk: str, ip: str) -> None:
             """
             Add an address to a peer
             """
@@ -833,7 +851,7 @@ class PeerCommands(object):
         @DualUse.method(name='del')
         @click.argument('vk', type=str)
         @click.argument('ip', type=str)
-        def del_(self, vk, ip):
+        def del_(self, vk: str, ip: str) -> None:
             """
             Delete an address from a peer.
 
@@ -848,7 +866,7 @@ class PeerCommands(object):
     @click.argument('vk', type=str, **shell_complete_helper(_ac_get_peer_ids))
     @click.argument('path', type=str, nargs=-1)
     @click.argument('value', type=str)
-    def set(self, vk, path, value):
+    def set(self, vk: str, path: List[str], value: str) -> None:
         """
         Modify arbitrary peer properties.
 
@@ -869,13 +887,12 @@ class PeerCommands(object):
 
     @DualUse.method()
     @click.argument('vk', type=str)
-    def remove(self, vk):
+    def remove(self, vk: str) -> Result:
         """
         Remove a peer.
         """
         res = self.organize.remove_peer(vk)
-        res = Result.from_yaml(str(res))
-        return res
+        return cast(Result, Result.from_yaml(str(res)))
 
 
 main = PeerCommands.cli

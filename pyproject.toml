@@ -56,6 +56,11 @@ filterwarnings = [
     "ignore::package distutils is deprecated:DeprecationWarning",
 ]
 
+[tool.mypy]
+files = ["vula", "test"]
+strict = true
+show_error_codes = true
+
 [[tool.mypy.overrides]]
 module = [
     "tkinter.*", # unmaintained third party library: https://github.com/insolor/tkinter-stubs
@@ -80,3 +85,6 @@ module = [
     "click_repl.*", # no stubs found
 ]
 ignore_missing_imports = true
+
+[tool.pyright]
+files = ["vula", "test"]

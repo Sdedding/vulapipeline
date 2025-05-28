@@ -15,7 +15,7 @@ addresses for the local network segment are used as WireGuard peers.
 
 from ipaddress import ip_address as ip_addr_parser
 from logging import Logger, getLogger
-from typing import Optional, Callable
+from typing import Optional, Callable, Any
 import click
 import pydbus
 from click.exceptions import Exit
@@ -87,7 +87,7 @@ class VulaServiceListener(ServiceListener):
         else:
             self.callback(desc)
 
-    def update_service(self, *a, **kw):
+    def update_service(self, *a: Any, **kw: Any) -> None:
         return self.add_service(*a, **kw)
 
 
@@ -104,7 +104,7 @@ class Discover(object):
     '''
 
     def __init__(self) -> None:
-        self.callbacks: list[Callable[[Descriptor], None]] = []
+        self.callbacks: list[Callable[[Descriptor], Any]] = []
         self.browsers: dict[str, tuple[Zeroconf, ServiceBrowser]] = {}
         self.log: Logger = getLogger()
 
@@ -142,7 +142,9 @@ class Discover(object):
         if ip_addr:
             self.listen([ip_addr])
 
-    def listen(self, ip_addrs: list[str], our_wg_pk: Optional[str] = None):
+    def listen(
+        self, ip_addrs: list[str], our_wg_pk: Optional[str] = None
+    ) -> None:
         for ip_addr in ip_addrs:
             if ip_addr in self.browsers:
                 self.log.info("Not launching a second browser for %r", ip_addr)
@@ -164,16 +166,16 @@ class Discover(object):
                 self.browsers[old_ip][0].close()
                 del self.browsers[old_ip]
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         for ip, browser in list(self.browsers.items()):
             del self.browsers[ip]
-            browser.cancel()
+            browser[1].cancel()
 
-    def is_alive(self):
-        return any(browser.is_alive() for browser in self.browsers.values())
+    def is_alive(self) -> bool:
+        return any(browser[1].is_alive() for browser in self.browsers.values())
 
     @classmethod
-    def daemon(cls, use_dbus, ip_address, interface):
+    def daemon(cls, use_dbus: bool, ip_address: str, interface: str) -> None:
         """
         This method implements the non-monolithic daemon mode where we run
         Discover in its own process (as deployed on GNU/systemd).
@@ -196,7 +198,7 @@ class Discover(object):
 
         discover.listen_on_ip_or_if(ip_address, interface)
 
-        loop.run()
+        loop.run()  # type: ignore[no-untyped-call]
 
 
 # FIXME: should we shutdown zeroconf objects upon glib shutdown? probably.
@@ -233,7 +235,7 @@ class Discover(object):
     help="bind to the primary IP address for the given interface, "
     "automatically choosing which IP to announce",
 )
-def main(**kwargs):
+def main(**kwargs: Any) -> None:
     Discover.daemon(**kwargs)
 
 

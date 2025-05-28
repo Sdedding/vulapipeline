@@ -12,6 +12,7 @@ from forge_descriptor import (
     forge_descriptor,
     serialize_forged_descriptor,
 )
+from vula.peer import Descriptor
 
 LABEL = '_opabinia._udp.local.'
 PORT = 5354
@@ -23,7 +24,7 @@ ch.setLevel(logging.DEBUG)
 logger.addHandler(ch)
 
 
-def extract_hostname_from_descriptor(descriptor) -> str:
+def extract_hostname_from_descriptor(descriptor: dict[bytes, bytes | None]) -> str:
     """
     extract hostname from Vula descriptor
     >>> descriptor = {
@@ -31,17 +32,21 @@ def extract_hostname_from_descriptor(descriptor) -> str:
     >>> extract_hostname_from_descriptor(descriptor)
     'pc.local.'
     """
-    return descriptor[b'hostname'].decode('utf-8')
+    value = descriptor[b'hostname']
+    assert value is not None
+    return value.decode('utf-8')
 
 
-def extract_ip_from_descriptor(descriptor) -> IPv4Address:
+def extract_ip_from_descriptor(descriptor: dict[bytes, bytes | None]) -> IPv4Address:
     """
     extract hostname from Vula descriptor
     >>> descriptor = {b'addrs': b'10.123.128.250', b'vf': b'1637779299'}
     >>> extract_ip_from_descriptor(descriptor)
     IPv4Address('10.123.128.250')
     """
-    return IPv4Address(descriptor[b'addrs'].decode('utf-8'))
+    value = descriptor[b'addrs']
+    assert value is not None
+    return IPv4Address(value.decode('utf-8'))
 
 
 def remove_hostname_domain(name: str) -> str:
@@ -88,7 +93,7 @@ class MdnsPoison(ServiceListener):
     """
 
     def __init__(
-        self, participants: list, ip: IPv4Address, vula_keys: VulaKeys
+        self, participants: list[str], ip: IPv4Address, vula_keys: VulaKeys
     ) -> None:
         """
         :param participants: hostnames to be MITM'd
@@ -107,7 +112,7 @@ class MdnsPoison(ServiceListener):
         self.browser = ServiceBrowser(self.zeroconf, LABEL, self)
 
     def __add_participant(
-        self, hostname: str, ip: IPv4Address, descriptor: dict
+        self, hostname: str, ip: IPv4Address, descriptor: dict[bytes, bytes | None]
     ) -> None:
         """
         adds participant information to internal state
@@ -145,7 +150,7 @@ class MdnsPoison(ServiceListener):
         logger.info(f"Vula Peer {hostname} ({ip}) added")
 
     def __update_participant(
-        self, hostname: str, ip: IPv4Address, descriptor
+        self, hostname: str, ip: IPv4Address, descriptor: dict[bytes, bytes | None]
     ) -> bool:
         """
         update participant information in internal state
@@ -203,12 +208,14 @@ class MdnsPoison(ServiceListener):
         # TODO: trigger tunnel creation/modification
         # if changed:
 
-    def add_service(self, zeroconf, type, name) -> None:
+    def add_service(self, zeroconf: Zeroconf, type: str, name: str) -> None:
         """
         MDNS poisoning logic for newly discovered MDNS records on the network
         function called by zeroconf ServiceBrowser
         """
-        descriptor = zeroconf.get_service_info(type, name).properties
+        service_info = zeroconf.get_service_info(type, name)
+        assert service_info is not None
+        descriptor = service_info.properties
         try:
             hostname = extract_hostname_from_descriptor(descriptor)
             hostname_without_domain = remove_hostname_domain(name)
@@ -230,13 +237,15 @@ class MdnsPoison(ServiceListener):
                 "shouldn't be added again"
             )
 
-    def update_service(self, zeroconf, type, name) -> None:
+    def update_service(self, zeroconf: Zeroconf, type: str, name: str) -> None:
         """
         MDNS poisoning logic for updated mdns records on the network
         function called by zeroconf ServiceBrowser
         """
         # parse MDNS information
-        descriptor = zeroconf.get_service_info(type, name).properties
+        service_info = zeroconf.get_service_info(type, name)
+        assert service_info is not None
+        descriptor = service_info.properties
         try:
             hostname = extract_hostname_from_descriptor(descriptor)
             hostname_without_domain = remove_hostname_domain(name)
@@ -265,7 +274,7 @@ class MdnsPoison(ServiceListener):
                 "and shouldn't be updated"
             )
 
-    def remove_service(self, zeroconf, type, name) -> None:
+    def remove_service(self, zeroconf: Zeroconf, type: str, name: str) -> None:
         """
         MDNS poisoning logic for removed mdns records on the network
         function called by zeroconf ServiceBrowser
@@ -295,7 +304,7 @@ class MdnsPoison(ServiceListener):
     type=str,
     help="hostnames to poison, without domain suffix, separated by \",\"",
 )
-def main(ip: str, interesting_hosts: str):
+def main(ip: str, interesting_hosts: str) -> None:
     # parse and check arguments
     input_ip = IPv4Address(ip)
     participants = interesting_hosts.split(",")

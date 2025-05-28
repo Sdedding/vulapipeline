@@ -3,11 +3,23 @@ import os
 import shutil
 import sys
 from functools import reduce, wraps
+from typing import (
+    Any,
+    Callable,
+    ParamSpec,
+    TypeVar,
+    List,
+    Union,
+    cast,
+    Type,
+    Optional,
+)
 
 import click
 import packaging.version as pkgv
+from click import Command, Group
 from click.exceptions import Exit  # noqa: F401
-from schema import Optional, Schema
+from schema import Optional as Optional_, Schema
 
 """
 This file contains various click-related bits of vula. None of this is
@@ -65,7 +77,7 @@ Anyway, if this gets in the way, we can get rid of some or all of it.
 
 
 class OrderedGroup(click.Group):
-    def list_commands(self, ctx):
+    def list_commands(self, ctx: click.Context) -> List[str]:
         return list(self.commands)
 
 
@@ -84,7 +96,7 @@ class Debuggable(OrderedGroup):
     otherwise be using @click.group()
     """
 
-    def __init__(self, scope=None, **attrs):
+    def __init__(self, scope: Any = None, **attrs: Any) -> None:
         self.scope = scope or {}
         super(Debuggable, self).__init__(**attrs)
         self.params.append(
@@ -104,7 +116,7 @@ class Debuggable(OrderedGroup):
             )
         )
 
-    def invoke(self, ctx):
+    def invoke(self, ctx: click.Context) -> Any:
         try:
             return super(Debuggable, self).invoke(ctx)
         except Exception as ex:
@@ -129,7 +141,7 @@ class Debuggable(OrderedGroup):
             else:
                 raise ex
 
-    def get_command(self, ctx, command):
+    def get_command(self, ctx: click.Context, command: Any) -> Any:
         if command in self.commands:
             return super(Debuggable, self).get_command(ctx, command)
 
@@ -155,7 +167,7 @@ class Debuggable(OrderedGroup):
                 return _click_command_from_annotated_function(cmd)
 
 
-def _click_command_from_annotated_function(cmd):
+def _click_command_from_annotated_function(cmd: Any) -> Any:
     """
     This metaprogramming nonsense is only used for development, and hardly even
     that.
@@ -165,7 +177,7 @@ def _click_command_from_annotated_function(cmd):
     """
 
     @click.command()
-    def wrapped(**kw):
+    def wrapped(**kw: dict[str, Any]) -> Any:
         print(cmd(**kw))
 
     spec = inspect.getfullargspec(cmd)
@@ -188,6 +200,10 @@ def _click_command_from_annotated_function(cmd):
     return wrapped
 
 
+P = ParamSpec('P')
+T = TypeVar('T')
+
+
 class DualUse(click.Group):
     """
     @DualUse.object() is a class decorator which enables class instances to be
@@ -197,23 +213,24 @@ class DualUse(click.Group):
     @DualUse.method() or @property.
     """
 
-    def __init__(self, *a, **kw):
+    def __init__(self, *a: Any, **kw: Any) -> None:
         callback = kw.pop('callback')
 
         @wraps(callback)
         @click.pass_context
-        def wrapper(ctx, *a, **kw):
+        def wrapper(ctx: click.Context, /, *a: Any, **kw: Any) -> Any:
             instance = callback(*a, **kw)
-            if 'magic_instance' not in ctx.meta.setdefault(
-                self.callback.__name__, {}
-            ):
-                ctx.meta[self.callback.__name__]['magic_instance'] = instance
+            key = (
+                self.callback.__name__ if self.callback else callback.__name__
+            )
+            if 'magic_instance' not in ctx.meta.setdefault(key, {}):
+                ctx.meta[key]['magic_instance'] = instance
             return instance
 
         super(DualUse, self).__init__(callback=wrapper, *a, **kw)
 
     @property
-    def all_commands(self):
+    def all_commands(self) -> dict[str, click.Command]:
         """
         This is the return dictionary of DualUse methods and child classes,
         with self.commands applied on top of it.
@@ -230,14 +247,16 @@ class DualUse(click.Group):
         res.update(**self.commands)
         return res
 
-    def list_commands(self, ctx):
+    def list_commands(self, ctx: click.Context) -> list[str]:
         return list(self.all_commands.keys()) + [
             name
             for name, value in vars(self.callback).items()
             if isinstance(value, property) and name != "__wrapped__"
         ]
 
-    def get_command(self, ctx, name):
+    CommandType = Union[Command, Group]
+
+    def get_command(self, ctx: click.Context, name: str) -> CommandType:
         """
         This got way out of hand. The 'else' branch in this method is just used
         for debugging, and not for everyday use. It allows accessing attributes
@@ -258,56 +277,62 @@ class DualUse(click.Group):
                 name=name,
                 cls=type(self),
                 invoke_without_command=True,
-                help="Read %r property of %s object"
-                % (name, self.callback.__name__),
+                help=f"Read {name!r} property of {self.callback.__name__ if self.callback else 'unknown'} object",  # noqa: E501
             )
             @click.pass_context
             class _property_printer(object):
                 @property
-                def value(self_):
+                def value(self_) -> Any:
                     try:
-                        return getattr(
-                            ctx.meta[self.callback.__name__]['magic_instance'],
-                            name,
-                        )
+                        if self.callback is not None:
+                            return getattr(
+                                ctx.meta[self.callback.__name__][
+                                    'magic_instance'
+                                ],
+                                name,
+                            )
                     except Exception as ex:
                         click.echo(ex)
 
-                def __init__(self_, ctx):
+                def __init__(self_, ctx: click.Context) -> None:
                     if ctx.invoked_subcommand is None:
                         echo_maybepager(str(self_.value))
 
-                def __getattr__(self_, name):
+                def __getattr__(self_, name: str) -> Any:
                     return getattr(self_.value, name)
 
-            _property_printer.callback.__name__ += ':' + name
+            group_obj = cast(click.Group, _property_printer)
+            if group_obj.callback is not None:
+                group_obj.callback.__name__ += ':' + name
 
-            return _property_printer
+            return group_obj
 
     @classmethod
-    def method(cls, opts=(), *a, **kw):
+    def method(
+        cls, opts: tuple[Any, ...] = (), *a: Any, **kw: Any
+    ) -> Callable[[Callable[P, T]], Callable[P, T]]:
         """
         Decorator to make methods of DualUse.object classes CLI-accessible.
         """
 
-        def decorator(f):
+        def decorator(f: Callable[P, T]) -> Callable[P, T]:
             @wraps(f)
-            def wrapper(*a, **kw):
+            def wrapper(*a: P.args, **kw: P.kwargs) -> None:
                 ctx = click.get_current_context()
                 instance = ctx.meta[f.__qualname__.split('.')[0]][
                     'magic_instance'
                 ]
                 res = f(instance, *a, **kw)
                 if res:
-                    res = str(res)
-                    if res[-1] == '\n':
-                        res = res[:-1]
-                    click.echo(res)
+                    output = str(res)
+                    if output.endswith('\n'):
+                        output = output[:-1]
+                    click.echo(output)
 
             wrapper.__doc__ = f.__doc__
             decos = opts + (click.command(*a, **kw),)
             wrapper = reduce(lambda a, b: b(a), decos, wrapper)
-            f.cli = wrapper
+            f.cli = wrapper  # type: ignore[attr-defined]
             # note: returning undecorated function, which has click command
             # attached to it
             return f
@@ -315,14 +340,16 @@ class DualUse(click.Group):
         return decorator
 
     @classmethod
-    def object(cls, *a, **kw):
+    def object(
+        cls, *a: Any, **kw: Any
+    ) -> Callable[[Callable[P, T]], Callable[P, T]]:
         """
         Decorator which installs an object instantiation CLI in the 'cli'
         attribute of a class.
         """
 
-        def decorator(f):
-            f.cli = wraps(f)(
+        def decorator(f: Callable[P, T]) -> Callable[P, T]:
+            f.cli = wraps(f)(  # type: ignore[attr-defined]
                 click.group(cls=cls, **kw)(schema2click_options(f))
             )
             return f
@@ -330,7 +357,7 @@ class DualUse(click.Group):
         return decorator
 
 
-def _make_type(schema):
+def _make_type(schema: Any) -> Type[click.ParamType]:
     class _type(click.ParamType):
         """
         Note that these click types have awful-looking type names currently, as
@@ -342,16 +369,21 @@ def _make_type(schema):
 
         name = str(schema)
 
-        def convert(self, value, param, ctx):
+        def convert(
+            self,
+            value: str,
+            param: Optional[click.Parameter],
+            ctx: Optional[click.Context],
+        ) -> Schema:
             return Schema(schema).validate(value)
 
     return _type
 
 
-def schema2click_options(f):
+def schema2click_options(f: Any) -> Any:
     if hasattr(f, 'schema'):
         for key, sub_schema in f.schema._schema.items():
-            if type(key) is Optional:
+            if type(key) is Optional_:
                 key = key._schema
             default = (getattr(f, 'default') or {}).get(key)
             _type = _make_type(sub_schema)
@@ -397,7 +429,7 @@ def blue(s: str) -> str:
     return click.style(s, fg="blue")
 
 
-def yellow(s):
+def yellow(s: str) -> str:
     """
     Formats the given string 's' to yellow foreground color.
 
@@ -408,7 +440,7 @@ def yellow(s):
     return click.style(s, fg="yellow")
 
 
-def bold(s):
+def bold(s: str) -> str:
     """
     Formats the given string 's' to be bold.
 
@@ -419,14 +451,14 @@ def bold(s):
     return click.style(s, bold=True)
 
 
-def top_level_params():
+def top_level_params() -> dict[str, Any]:
     ctx = click.get_current_context()
     while ctx.parent:
         ctx = ctx.parent
     return ctx.params
 
 
-def echo_maybepager(s):
+def echo_maybepager(s: str) -> None:
     if (
         s.count("\n") < shutil.get_terminal_size()[1]
         or top_level_params()['no_pager']
@@ -436,13 +468,13 @@ def echo_maybepager(s):
         click.echo_via_pager(s)
 
 
-def shell_complete_helper(fn):
+def shell_complete_helper(fn: Any) -> dict[str, Any]:
     """
     This is a helper to maintain compatibility with both click 7.x and 8.x.
 
     We could pass the old "autocompletion" argument to click 7.x but instead we
     pass nothing because autocompletion didn't work there anyway.
     """
-    if pkgv.parse(click.__version__) >= pkgv.parse('8.0.0'):
+    if pkgv.parse(str(click.__version__)) >= pkgv.parse('8.0.0'):
         return dict(shell_complete=fn)
     return {}

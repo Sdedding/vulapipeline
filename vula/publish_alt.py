@@ -11,7 +11,7 @@ import time
 import zlib
 from logging import Logger, getLogger
 from queue import Empty, Queue
-from typing import Optional
+from typing import Optional, Any, Self, TypeAlias
 
 import click
 import nacl.secret
@@ -24,6 +24,8 @@ from .constants import (
     _ORGANIZE_DBUS_PATH,
     _PUBLISH_ALT_DBUS_NAME,
 )
+
+SockType: TypeAlias = dict[str, Any]
 
 
 class Publish_Alt:
@@ -61,7 +63,7 @@ class Publish_Alt:
         time_interval: int,
     ):
         self.descriptor_cli = descriptor
-        self.descriptor: dict = {}
+        self.descriptor: dict[str, str] = {}
         self.verbose = verbose
         self.is_reply = is_reply
         self.broadcast_mac = broadcast_mac
@@ -80,8 +82,8 @@ class Publish_Alt:
         self.pa_address_code = pa_address_code
         self.time_interval = time_interval
         self.log: Logger = getLogger()
-        self.publish_entries: Queue = Queue()
-        self.packets: Queue = Queue()
+        self.publish_entries: Queue[dict[str, Any]] = Queue()
+        self.packets: Queue[dict[str, Any]] = Queue()
         self.active = False
         self.publishing_thread: threading.Thread
         self.packet_sending_thread: threading.Thread
@@ -97,7 +99,7 @@ class Publish_Alt:
             self.organize.our_latest_descriptors()
         )
 
-    def set_descriptors(self, sock: dict) -> None:
+    def set_descriptors(self, sock: SockType) -> None:
         """
         Set descriptor of ip
         """
@@ -113,7 +115,7 @@ class Publish_Alt:
             for kv in sorted(self.organize_descriptors.get(ip).items())
         )
 
-    def get_information(self, sock: dict) -> None:
+    def get_information(self, sock: SockType) -> None:
         """
         Update specific information
         """
@@ -166,7 +168,9 @@ class Publish_Alt:
         except Empty:
             return False
 
-    def get_packets(self, sock: dict, packet_payload: bytes) -> list:
+    def get_packets(
+        self, sock: SockType, packet_payload: bytes
+    ) -> list[bytes]:
         """
         Split message up into packets and return them for processing.
         """
@@ -256,7 +260,7 @@ class Publish_Alt:
                 pass
         return None
 
-    def get_mac(self, sock: dict) -> bytes:
+    def get_mac(self, sock: SockType) -> bytes:
         """
         Get mac address of interface.
         """
@@ -288,11 +292,11 @@ class Publish_Alt:
         self.log.debug("message length after compression: " + str(len(hdc)))
         return box.encrypt(hdc, nonce)  # return encryped text
 
-    def generate_header(self, sock: dict) -> bytes:
+    def generate_header(self, sock: SockType) -> bytes:
         """
         Assemble ARP header.
         """
-        packet_header = self.broadcast_mac
+        packet_header: bytes = self.broadcast_mac
         packet_header += sock["mac_addr"]
         packet_header += self.ethernet_type
         packet_header += self.hardware_type
@@ -306,7 +310,7 @@ class Publish_Alt:
         packet_header += sock["dest_ip"]
         return packet_header
 
-    def get_arp(self, sock: dict) -> bytes:
+    def get_arp(self, sock: SockType) -> bytes:
         """
         Pick random entry of ARP cache to be used as destination address.
         """
@@ -314,7 +318,6 @@ class Publish_Alt:
             reader = list(
                 csv.reader(arp_table, skipinitialspace=True, delimiter=" ")
             )
-        dest_ip = b""
         arp_cache = [
             a[0] for a in reader[1:]
         ]  # skip header line and read ip field
@@ -386,25 +389,25 @@ class Publish_Alt:
     @classmethod
     def daemon(
         cls,
-        descriptor,
-        verbose,
-        is_reply,
-        broadcast_mac,
-        ethernet_type,
-        hardware_type,
-        protocol_type,
-        hardware_size,
-        protocol_size,
-        zero_mac,
-        interval_min,
-        interval_max,
-        op_code,
-        arp_packet_max_length,
-        formatting_string,
-        hardware_address_ioctl_code,
-        pa_address_code,
-        time_interval,
-    ) -> None:
+        descriptor: str,
+        verbose: bool,
+        is_reply: bool,
+        broadcast_mac: bytes,
+        ethernet_type: bytes,
+        hardware_type: bytes,
+        protocol_type: bytes,
+        hardware_size: bytes,
+        protocol_size: bytes,
+        zero_mac: bytes,
+        interval_min: float,
+        interval_max: float,
+        op_code: bytes,
+        arp_packet_max_length: int,
+        formatting_string: str,
+        hardware_address_ioctl_code: int,
+        pa_address_code: int,
+        time_interval: int,
+    ) -> Self:
         """
         Sets up DBus
         """
@@ -435,7 +438,9 @@ class Publish_Alt:
         system_bus = pydbus.SystemBus()
         system_bus.publish(_PUBLISH_ALT_DBUS_NAME, publish)
 
-        loop.run()
+        loop.run()  # type: ignore[no-untyped-call]
+
+        return publish
 
 
 @click.command(short_help="Layer 2 alternate publish daemon")
@@ -534,25 +539,25 @@ class Publish_Alt:
     "--time_interval", default=90, type=int, help="Time in between packets"
 )
 def main(
-    descriptor,
-    verbose,
-    is_reply,
-    broadcast_mac,
-    ethernet_type,
-    hardware_type,
-    protocol_type,
-    hardware_size,
-    protocol_size,
-    zero_mac,
-    interval_min,
-    interval_max,
-    op_code,
-    arp_packet_max_length,
-    formatting_string,
-    hardware_address_ioctl_code,
-    pa_address_code,
-    time_interval,
-):
+    descriptor: str,
+    verbose: bool,
+    is_reply: bool,
+    broadcast_mac: bytes,
+    ethernet_type: bytes,
+    hardware_type: bytes,
+    protocol_type: bytes,
+    hardware_size: bytes,
+    protocol_size: bytes,
+    zero_mac: bytes,
+    interval_min: float,
+    interval_max: float,
+    op_code: bytes,
+    arp_packet_max_length: int,
+    formatting_string: str,
+    hardware_address_ioctl_code: int,
+    pa_address_code: int,
+    time_interval: int,
+) -> None:
     arp_daemon = Publish_Alt.daemon(
         descriptor,
         verbose,

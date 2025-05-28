@@ -1,13 +1,14 @@
 import unittest
 from base64 import b64decode, b64encode
 from ipaddress import IPv4Address, IPv6Address
+from typing import Any
 
 import schema
 
 from vula.peer import Descriptor
 
 
-def desc(vk, v4a, hostname, **kw):
+def desc(vk: str, v4a: str, hostname: str, **kw: Any) -> Descriptor:
     "make test descriptor"
     data = dict(
         pk=mkk('pubkey'),
@@ -25,7 +26,7 @@ def desc(vk, v4a, hostname, **kw):
     return Descriptor(data)
 
 
-def mkk(n, length=32):
+def mkk(n: str | int, length: int = 32) -> str:
     """
     make human-readable base64 key-shaped strings. argument must consist of
     base64-allowed characters.
@@ -50,7 +51,7 @@ class TestDescriptor(unittest.TestCase):
     Note there are many more, in the form of doctests.
     """
 
-    def test_descriptor_addrs_validate(self):
+    def test_descriptor_addrs_validate(self) -> None:
         d = desc(
             hostname='alice.local',
             vk=mkk('1'),

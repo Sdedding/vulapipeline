@@ -85,13 +85,13 @@ class PrefsCommands(object):
 
     cli: click.Group
 
-    def __init__(self, ctx):
+    def __init__(self, ctx: click.Context) -> None:
         self.organize = organize_dbus_if_active()
         if ctx.invoked_subcommand is None:
             click.echo(self.show().strip())
 
     @DualUse.method()
-    def show(self):
+    def show(self) -> str:
         """
         Show preferences.
         """
@@ -101,7 +101,7 @@ class PrefsCommands(object):
     @DualUse.method()
     @click.argument('pref', type=str)
     @click.argument('value', type=str)
-    def set(self, pref, value):
+    def set(self, pref: str, value: str) -> str:
         """
         Set a preference to a value.
         """
@@ -110,7 +110,7 @@ class PrefsCommands(object):
     @DualUse.method()
     @click.argument('pref', type=str)
     @click.argument('value', type=str)
-    def add(self, pref, value):
+    def add(self, pref: str, value: str) -> str:
         """
         Merge a preference value into a list or dict.
         """
@@ -119,7 +119,7 @@ class PrefsCommands(object):
     @DualUse.method()
     @click.argument('pref', type=str)
     @click.argument('value', type=str)
-    def remove(self, pref, value):
+    def remove(self, pref: str, value: str) -> str:
         """
         Remove a preference value from a list or dict.
         """

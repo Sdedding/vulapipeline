@@ -13,3 +13,13 @@ lang_translations = gettext.translation(
     domain="ui.overlay", localedir=locale_path, fallback=True
 )
 lang_translations.install()
+
+__all__ = [
+    "DescriptorOverlay",
+    "HelpOverlay",
+    "PeerDetailsOverlay",
+    "PopupMessage",
+    "VerificationKeyOverlay",
+    "locale_path",
+    "lang_translations",
+]

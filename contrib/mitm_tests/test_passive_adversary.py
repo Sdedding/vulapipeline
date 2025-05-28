@@ -9,7 +9,7 @@ import sys
 import subprocess
 import platform
 import logging
-from typing import Optional
+from typing import Optional, cast
 
 import click
 import json
@@ -49,7 +49,7 @@ TEST_NOT_PASSED_STAMP = "./podman/.test-not-passed-stamp"
 NO_CAPTURE = "./podman/.test-no-capture"
 
 
-def _enable_macos_iproute():
+def _enable_macos_iproute() -> None:
     """
     Enables IP route ( IP Forward ) in MacOS
     :return: Nothing
@@ -58,8 +58,8 @@ def _enable_macos_iproute():
     cmd = "sysctl net.inet.ip.forwarding=1"
     subprocess.Popen(cmd.split(' '))
 
-
-def _enable_linux_iproute():
+# todo f.read returns a string and gets compared with an int so is always false
+def _enable_linux_iproute() -> None:
     """
     Enables IP route ( IP Forward ) in linux-based distro
 
@@ -67,14 +67,14 @@ def _enable_linux_iproute():
     """
     file_path = "/proc/sys/net/ipv4/ip_forward"
     with open(file_path) as f:
-        if f.read() == 1:
+        if f.read() == "1":
             # already enabled
             return
     with open(file_path, "w") as f:
         f.write("1")
 
 
-def _enable_windows_iproute():
+def _enable_windows_iproute() -> None:
     """
     Enables IP route (IP Forwarding) in Windows
     """
@@ -121,14 +121,14 @@ def get_mac(ip: IPv4Address) -> Optional[str]:
         Ether(dst='ff:ff:ff:ff:ff:ff') / ARP(pdst=ip), timeout=3, verbose=0
     )
     if ans:
-        mac = ans[0][1].src
+        mac = cast(str, ans[0][1].src)
         logger.debug(f"Found MAC for IP: {mac}")
         return mac
 
     return None
 
 
-def spoof(target_ip, host_ip):
+def spoof(target_ip: str, host_ip: str) -> None:
     """
     Spoofs target_ip saying that we are host_ip (poisoning the targets cache).
 
@@ -137,7 +137,7 @@ def spoof(target_ip, host_ip):
     :return:
     """
     # get the mac address of the target
-    target_mac = get_mac(target_ip)
+    target_mac = get_mac(IPv4Address(target_ip))
     logger.debug(f"MAC for target: {target_mac}")
 
     # Get own mac address
@@ -161,7 +161,7 @@ def spoof(target_ip, host_ip):
     logger.debug(f"[+] Sent to {target_ip} : {host_ip} is-at {own_mac}")
 
 
-def restore(target_ip, host_ip):
+def restore(target_ip: str, host_ip: str) -> None:
     """
     Restores the normal process of a regular network
     This is done by sending the original information
@@ -172,10 +172,10 @@ def restore(target_ip, host_ip):
     :return:
     """
     # get the real MAC address of target
-    target_mac = get_mac(target_ip)
+    target_mac = get_mac(IPv4Address(target_ip))
 
     # get the real MAC address of spoofed (gateway, i.e router)
-    host_mac = get_mac(host_ip)
+    host_mac = get_mac(IPv4Address(host_ip))
 
     # crafting the restoring packet
     arp_response = ARP(
@@ -222,13 +222,13 @@ def capture(timeout: int) -> None:
 
 
 @click.group()
-def main_cli():
+def main_cli() -> None:
     pass
 
 
 @main_cli.command()
 @click.argument('name', type=str)
-def banner(name: str):
+def banner(name: str) -> None:
     f = Figlet()
     printy(f.renderText(f"It's a me {name}!"), 'o>')
     print()
@@ -238,7 +238,7 @@ def banner(name: str):
 
 
 @main_cli.command()
-def activeresult():
+def activeresult()-> None:
     # Get Mallorys IP
     cmd_mallory_podman = ["sudo", "podman", "inspect", "mallory"]
     p_mallory = subprocess.Popen(
@@ -272,7 +272,7 @@ def activeresult():
 
 
 @main_cli.command()
-def result():
+def result() -> None:
     if os.path.exists(TEST_PASSED_STAMP):
         os.unlink(TEST_PASSED_STAMP)
         print()
@@ -302,7 +302,7 @@ def result():
 @click.argument('is_test', default=False, type=bool)
 def run(
     target_ip1: str, target_ip2: str, capture_time: int, is_test: bool = False
-):
+) -> None:
 
     if not is_test:
         # Only execute if the script is NOT executed in a container.

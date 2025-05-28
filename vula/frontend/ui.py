@@ -1,6 +1,7 @@
 import gettext
 import tkinter as tk
 from tkinter import Button, Canvas, Frame, PhotoImage
+from typing import Any
 
 from vula import common
 from vula.frontend import DataProvider
@@ -27,7 +28,7 @@ _ = gettext.gettext
 
 
 class App(tk.Tk):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         data = DataProvider()
         tk.Tk.__init__(self, *args, **kwargs)
 
@@ -162,8 +163,6 @@ class App(tk.Tk):
         # Get the status of the different vula processes
         state = data.get_status()
 
-        # @TODO: The case where state is None might have to be handled
-        # @TODO: differently
         if state is None:
             state = {
                 "publish": "no status available",

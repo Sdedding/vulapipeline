@@ -5,7 +5,7 @@ from unittest import TestCase, main
 class TestX25519(TestCase):
 
     # This fails on OpenBSD
-    def test_x25519_keygen(self):
+    def test_x25519_keygen(self) -> None:
         import cryptography.hazmat.primitives.asymmetric.x25519
         from cryptography.hazmat.primitives.asymmetric.x25519 import (
             X25519PrivateKey,
@@ -16,15 +16,15 @@ class TestX25519(TestCase):
 
             if (
                 type(keypair)
-                == cryptography.hazmat.backends.openssl.x25519._X25519PrivateKey  # noqa: E501
+                == cryptography.hazmat.backends.openssl.x25519._X25519PrivateKey  # type: ignore[attr-defined] # noqa: E501
             ):
                 self.assertIsInstance(
                     keypair,
-                    cryptography.hazmat.backends.openssl.x25519._X25519PrivateKey,  # noqa: E501
+                    cryptography.hazmat.backends.openssl.x25519._X25519PrivateKey,  # type: ignore[attr-defined] # noqa: E501
                 )
         except AttributeError:
             if (
-                type(keypair)
+                type(keypair)  # type: ignore[comparison-overlap]
                 == cryptography.hazmat.bindings._rust.openssl.x25519.X25519PrivateKey  # noqa: E501
             ):
                 self.assertIsInstance(

@@ -5,6 +5,8 @@ from sys import platform
 
 from platform import node
 import json
+from typing import Any
+
 import click
 import pydbus
 
@@ -34,7 +36,7 @@ from .notclick import green, red, yellow
     count=True,
     help="Only print systemd service status",
 )
-def main(only_systemd, verbose):
+def main(only_systemd: bool, verbose: int) -> None:
     """
     Print status of systemd services and system configuration.
     """
@@ -44,7 +46,7 @@ def main(only_systemd, verbose):
         log.error("so far, the status command only works on linux")
         raise Exit(1)
 
-    def printer(status, service):
+    def printer(status: str, service: str) -> None:
         status = (
             (lambda x: x)
             if status == 'none'
@@ -54,10 +56,12 @@ def main(only_systemd, verbose):
         )("{:^8}".format(status))
         click.echo("[{}] {}".format(status, service))
 
-    bus = pydbus.SystemBus()
+    bus: Any = pydbus.SystemBus()
 
     if daemon is not None and daemon.booted() == 1:
-        systemd = bus.get(".systemd1")
+        systemd = bus.get(
+            "org.freedesktop.systemd1", "/org/freedesktop/systemd1"
+        )
         for service in [
             "publish",
             "discover",

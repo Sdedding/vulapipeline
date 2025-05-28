@@ -351,3 +351,26 @@ ethernet" work via a gethostbyname interface? Maybe.
 - When manually executing the last post-installation step on openSUSE (`sudo systemctl enable --now vula-organize`), the following error message appears:\
   `Failed to enable unit: Unit file vula-organize.service does not exist.`\
   Vula cannot be used, if the organize service doesn't run.
+
+## Typing
+
+All issues reported by `mypy --strict` are resolved and checked automatically via the CI.\
+Even though mypy with the --strict option can be seen as the most relevant tool, 
+it makes sense to use other type checkers for cross verification.\
+For this, `pyright` was introduced, which still reports around 150 errors and warnings.\
+The different results is explained in the [Differences Between Pyright and Mypy](https://github.com/microsoft/pyright/blob/main/docs/mypy-comparison.md)
+section of the pyright GitHub docs.\
+Here are the top 6 categories of issues reported by pyright:
+1. Unknown Module Attributes / Function/Class Member Access Issues: We think this is caused by different type inference
+2. Possibly Unbound Variables: A variable is conditionally set and then accessed later without guaranteed assignment.
+3. Issue with interpretation of Schema types: It would make sense to take a look at the type definitions of the schema module.
+4. Function Used Where a Class Is Expected: It might be necessary to refactor types where `Callable` is used but a class is provided.
+5. Unresolved Imports: We already had some issue with mypy, it turns out it's quite ambiguous how to correctly type optional imports correctly.
+
+Pyright can be executed from the main directory or in the podman directory with the following command:
+
+```bash
+make pyright
+```
+
+For a future project it would be nice to resolve the remaining issues and maybe introduce other options like [ty](https://github.com/astral-sh/ty) and [pyrefly](https://pyrefly.org/).

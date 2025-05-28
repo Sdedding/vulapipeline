@@ -6,7 +6,7 @@ import vula.discover
 
 
 class TestVulaServiceListener:
-    def test_add_service_calls_callback(self):
+    def test_add_service_calls_callback(self) -> None:
         callback = MagicMock()
         zeroconf = MagicMock()
         zeroconf.get_service_info().properties = Descriptor.parse(
@@ -18,7 +18,7 @@ class TestVulaServiceListener:
 
         callback.assert_called_once()
 
-    def test_add_service_no_service_info(self):
+    def test_add_service_no_service_info(self) -> None:
         callback = MagicMock()
         zeroconf = MagicMock()
         zeroconf.get_service_info.return_value = None
@@ -28,7 +28,7 @@ class TestVulaServiceListener:
 
         callback.assert_not_called()
 
-    def test_add_service_invalid_descriptor(self):
+    def test_add_service_invalid_descriptor(self) -> None:
         callback = MagicMock()
         props = {
             b'v4a': b'192.168.2.1',
@@ -46,9 +46,9 @@ class TestVulaServiceListener:
 
         callback.assert_not_called()
 
-    def test_update_service_calls_add_service(self):
+    def test_update_service_calls_add_service(self) -> None:
         listener = vula.discover.VulaServiceListener(MagicMock())
-        listener.add_service = MagicMock()
+        listener.add_service = MagicMock()  # type: ignore[method-assign]
         m = MagicMock()
 
         listener.update_service(m, "bar", "foo")
@@ -56,14 +56,14 @@ class TestVulaServiceListener:
         listener.add_service.assert_called_once_with(m, "bar", "foo")
 
 
-def alive_mock(x):
+def alive_mock(x: bool) -> MagicMock:
     m = MagicMock()
     m.is_alive.return_value = x
     return m
 
 
 class TestDiscover:
-    def test_callback_calls_all(self):
+    def test_callback_calls_all(self) -> None:
         a = MagicMock()
         b = MagicMock()
         c = MagicMock()
@@ -71,57 +71,58 @@ class TestDiscover:
         discover = vula.discover.Discover()
         discover.callbacks = [a, b, c]
 
-        discover.callback("foo")
+        value = MagicMock()
+        discover.callback(value)
 
-        a.assert_called_once_with("foo")
-        b.assert_called_once_with("foo")
-        c.assert_called_once_with("foo")
+        a.assert_called_once_with(value)
+        b.assert_called_once_with(value)
+        c.assert_called_once_with(value)
 
-    def test_is_not_alive(self):
+    def test_is_not_alive(self) -> None:
         discover = vula.discover.Discover()
         discover.browsers = {
-            '192.168.1.1': alive_mock(False),
-            '192.168.1.2': alive_mock(False),
-            '192.168.1.3': alive_mock(False),
+            '192.168.1.1': (MagicMock(), alive_mock(False)),
+            '192.168.1.2': (MagicMock(), alive_mock(False)),
+            '192.168.1.3': (MagicMock(), alive_mock(False)),
         }
 
         alive = discover.is_alive()
         print(alive)
         assert alive is False
 
-    def test_is_alive(self):
+    def test_is_alive(self) -> None:
         discover = vula.discover.Discover()
         discover.browsers = {
-            '192.168.1.1': alive_mock(False),
-            '192.168.1.2': alive_mock(False),
-            '192.168.1.3': alive_mock(True),
-            '192.168.1.4': alive_mock(False),
+            '192.168.1.1': (MagicMock(), alive_mock(False)),
+            '192.168.1.2': (MagicMock(), alive_mock(False)),
+            '192.168.1.3': (MagicMock(), alive_mock(True)),
+            '192.168.1.4': (MagicMock(), alive_mock(False)),
         }
 
         alive = discover.is_alive()
         assert alive is True
 
-    def test_shutdown_removes_browsers(self):
+    def test_shutdown_removes_browsers(self) -> None:
         discover = vula.discover.Discover()
         discover.browsers = {
-            '192.168.1.1': MagicMock(),
-            '192.168.1.2': MagicMock(),
-            '192.168.1.3': MagicMock(),
+            '192.168.1.1': (MagicMock(), MagicMock()),
+            '192.168.1.2': (MagicMock(), MagicMock()),
+            '192.168.1.3': (MagicMock(), MagicMock()),
         }
 
         discover.shutdown()
 
         assert discover.browsers == {}
 
-    def test_shutdown_cancels_browsers(self):
+    def test_shutdown_cancels_browsers(self) -> None:
         browser1 = MagicMock()
         browser2 = MagicMock()
         browser3 = MagicMock()
         discover = vula.discover.Discover()
         discover.browsers = {
-            '192.168.1.1': browser1,
-            '192.168.1.2': browser2,
-            '192.168.1.3': browser3,
+            '192.168.1.1': (MagicMock(), browser1),
+            '192.168.1.2': (MagicMock(), browser2),
+            '192.168.1.3': (MagicMock(), browser3),
         }
 
         discover.shutdown()
