@@ -2,7 +2,7 @@ import gettext
 import json
 import tkinter as tk
 
-from vula.frontend import DataProvider
+from vula.frontend.provider_factory import get_provider
 from vula.frontend.components import QRCodeLabel
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
@@ -22,7 +22,7 @@ class DescriptorOverlay(tk.Toplevel):
         self.root = parent
 
     def openNewWindow(self) -> None:
-        data = DataProvider()
+        data = get_provider(mock=False)
         newWindow = tk.Toplevel(self.root)
         newWindow.wm_transient(self.root)
 

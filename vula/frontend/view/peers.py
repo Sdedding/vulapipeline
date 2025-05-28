@@ -1,9 +1,19 @@
+from __future__ import annotations
+
+"""
+Peers list widget – Tkinter implementation.
+
+Now based on the new dataclass model (Peer / PeerStatus) and the public
+`get_provider()` entry-point exposed by `vula.frontend`.
+"""
+
 import gettext
 import math
 from tkinter import Button, Canvas, Frame, Label, PhotoImage
 from typing import List
 
-from vula.frontend import DataProvider, PeerType
+from vula.frontend import get_provider
+from vula.frontend.datadomain import Peer, PeerStatus
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
     BACKGROUND_COLOR_CARD,
@@ -27,34 +37,42 @@ _ = gettext.gettext
 
 
 class Peers(Frame):
-    data = DataProvider()
+    """Scrollable list of peers with paging."""
+
+    # All widgets share a *single* provider instance
+    data = get_provider()
 
     peer_frames: List[Frame] = []
 
-    # need to save this numbers for updating the GUI,
-    # as it takes quite long for dbus to make these changes
+    # cached values for change detection
     num_peers = 0
     num_peers_after_remove = 0
 
-    # navigation to show more pages with peers if needed
+    # pagination
     peer_page = 1
     peers_per_page = 5
 
+    # ────────────────────────── Tk lifecycle ──────────────────────────
+
     def __init__(self, parent: Frame) -> None:
-        Frame.__init__(self, parent)
+        super().__init__(parent)
         self.app = parent
 
         self.display_header()
         self.display_peers()
         self.display_buttons()
-        self.update_loop()
+
+        # regular refresh
+        self.after(5_000, self.update_loop)
+
+    # ────────────────────────── UI builder ──────────────────────────
 
     def display_header(self) -> None:
-        self.title_frame = Frame(
-            self.app, bg=BACKGROUND_COLOR, width=400, height=40
-        )
+        title_frame = Frame(self.app, bg=BACKGROUND_COLOR, height=40)
+        title_frame.grid(row=0, column=0, pady=(10, 0), sticky="w")
+
         title = Canvas(
-            self.title_frame,
+            title_frame,
             bg=BACKGROUND_COLOR,
             height=40,
             width=400,
@@ -67,11 +85,10 @@ class Peers(Frame):
             0,
             0,
             anchor="nw",
-            text="Peers",
+            text=_("Peers"),
             fill=TEXT_COLOR_HEADER_2,
             font=(FONT, FONT_SIZE_HEADER_2),
         )
-        self.title_frame.grid(row=0, column=0, pady=(10, 0), sticky="w")
 
     def display_buttons(self) -> None:
         self.buttons_frame = Frame(
@@ -91,260 +108,202 @@ class Peers(Frame):
         input_canvas.place(x=0, y=0)
 
         self.button_image_previous_page = PhotoImage(
-            file=IMAGE_BASE_PATH + 'previous.png'
+            file=IMAGE_BASE_PATH + "previous.png"
         )
         self.button_previous_page = Button(
             master=self.buttons_frame,
             image=self.button_image_previous_page,
             borderwidth=0,
             highlightthickness=0,
-            command=lambda: self.previous_page(),
+            command=self.previous_page,
             relief="flat",
         )
 
         self.button_image_next_page = PhotoImage(
-            file=IMAGE_BASE_PATH + 'next.png'
+            file=IMAGE_BASE_PATH + "next.png"
         )
         self.button_next_page = Button(
             master=self.buttons_frame,
             image=self.button_image_next_page,
             borderwidth=0,
             highlightthickness=0,
-            command=lambda: self.next_page(),
+            command=self.next_page,
             relief="flat",
         )
 
+        # only render if multiple pages
         if math.ceil(self.num_peers / self.peers_per_page) > 1:
             self.button_next_page.place(
                 x=321.0, y=0.0, width=79.0, height=23.0
             )
 
+    # ────────────────────────── Paging helpers ──────────────────────────
+
     def next_page(self) -> None:
         self.peer_page += 1
-
         self.button_previous_page.place(
             x=232.0, y=0.0, width=79.0, height=23.0
         )
         if self.peer_page == math.ceil(self.num_peers / self.peers_per_page):
             self.button_next_page.place_forget()
 
-        self.clear_peers()
-        self.display_peers()
+        self.refresh()
 
     def previous_page(self) -> None:
         self.peer_page -= 1
-
         self.button_next_page.place(x=321.0, y=0.0, width=79.0, height=23.0)
         if self.peer_page == 1:
             self.button_previous_page.place_forget()
+        self.refresh()
 
-        self.clear_peers()
-        self.display_peers()
+    # ────────────────────────── Main list ──────────────────────────
 
     def display_peers(self) -> None:
         peers = self.data.get_peers()
         self.num_peers = len(peers)
-        counter = 1
 
         if self.num_peers == 0:
-            no_peers_label = Label(
+            Label(
                 self.app,
-                text="No Peers to display",
+                text=_("No peers to display"),
                 bg=BACKGROUND_COLOR,
                 fg=TEXT_COLOR_WHITE,
                 font=(FONT, FONT_SIZE_TEXT_L),
-            )
-            no_peers_label.grid(row=counter, column=0, sticky="w", pady=10)
+            ).grid(row=1, column=0, sticky="w", pady=10)
+            return
 
-        # Get slice of array for current page
-        # [0:5], [5, 10] etc.
-        peers_for_page = peers[
-            (self.peer_page - 1)
-            * self.peers_per_page : (self.peer_page - 1)
-            * self.peers_per_page
-            + self.peers_per_page
-        ]
+        # slice peers for current page
+        start = (self.peer_page - 1) * self.peers_per_page
+        stop = start + self.peers_per_page
+        for idx, peer in enumerate(peers[start:stop], start=1):
+            self._render_single_peer(idx, peer)
 
-        for peer in peers_for_page:
-            peer_frame = Frame(
-                self.app, bg=BACKGROUND_COLOR, width=400, height=70
-            )
-            peer_frame.grid(row=counter, column=0, sticky="w", pady=10)
+    def _render_single_peer(self, row: int, peer: Peer) -> None:
+        """Render one peer entry."""
+        frame = Frame(self.app, bg=BACKGROUND_COLOR, width=400, height=70)
+        frame.grid(row=row, column=0, sticky="w", pady=10)
 
-            canvas = Canvas(
-                peer_frame,
-                bg=BACKGROUND_COLOR,
-                height=70,
-                width=400,
-                bd=0,
-                highlightthickness=0,
-                relief="ridge",
-            )
+        canvas = Canvas(
+            frame,
+            bg=BACKGROUND_COLOR,
+            height=70,
+            width=400,
+            bd=0,
+            highlightthickness=0,
+            relief="ridge",
+        )
+        canvas.place(x=0, y=0)
 
-            canvas.place(x=0, y=0)
+        self.round_rectangle(canvas, 0, 0, 400, 70, r=30, fill=BACKGROUND_COLOR_CARD)
 
-            self.round_rectangle(
-                canvas, 0, 0, 400, 70, r=30, fill=BACKGROUND_COLOR_CARD
-            )
+        name = peer.name or peer.other_names or peer.id
 
-            if peer["name"]:
-                name = peer["name"]
-            else:
-                name = peer["other_names"] or ""
+        # peer name
+        canvas.create_text(
+            20.0,
+            10.0,
+            anchor="nw",
+            text=name,
+            fill=TEXT_COLOR_GREEN,
+            font=(FONT, FONT_SIZE_TEXT_S),
+        )
 
-            # Peer name
+        # endpoint
+        canvas.create_text(
+            20.0,
+            40.0,
+            anchor="nw",
+            text=peer.endpoint or "",
+            fill=TEXT_COLOR_GREY,
+            font=(FONT, FONT_SIZE_TEXT_XS),
+        )
+
+        # status labels
+        if PeerStatus.ENABLED in peer.status:
             canvas.create_text(
-                20.0,
-                10.0,
-                anchor="nw",
-                text=name,
-                fill=TEXT_COLOR_GREEN,
-                font=(FONT, FONT_SIZE_TEXT_S),
-            )
-
-            # Endpoint IP
-            canvas.create_text(
-                20.0,
+                205.0,
                 40.0,
                 anchor="nw",
-                text=peer["endpoint"] or "",
-                fill=TEXT_COLOR_GREY,
-                font=(FONT, FONT_SIZE_TEXT_XS),
+                text="enabled",
+                fill=TEXT_COLOR_YELLOW,
+                font=(FONT, FONT_SIZE_TEXT_M),
+            )
+        if PeerStatus.PINNED in peer.status:
+            canvas.create_text(
+                270.0,
+                40.0,
+                anchor="nw",
+                text="pinned",
+                fill=TEXT_COLOR_PURPLE,
+                font=(FONT, FONT_SIZE_TEXT_M),
+            )
+        if PeerStatus.VERIFIED in peer.status:
+            canvas.create_text(
+                325.0,
+                40.0,
+                anchor="nw",
+                text="verified",
+                fill=TEXT_COLOR_GREEN,
+                font=(FONT, FONT_SIZE_TEXT_M),
             )
 
-            # Status labels
-            if peer["status"] is not None:
-                if "enabled" in peer["status"]:
-                    canvas.create_text(
-                        205.0,
-                        40.0,
-                        anchor="nw",
-                        text="enabled",
-                        fill=TEXT_COLOR_YELLOW,
-                        font=(FONT, FONT_SIZE_TEXT_M),
-                    )
-                if "unpinned" not in peer["status"]:
-                    canvas.create_text(
-                        270.0,
-                        40.0,
-                        anchor="nw",
-                        text="pinned",
-                        fill=TEXT_COLOR_PURPLE,
-                        font=(FONT, FONT_SIZE_TEXT_M),
-                    )
-                if "unverified" not in peer["status"]:
-                    canvas.create_text(
-                        325.0,
-                        40.0,
-                        anchor="nw",
-                        text="verified",
-                        fill=TEXT_COLOR_GREEN,
-                        font=(FONT, FONT_SIZE_TEXT_M),
-                    )
+        # correct late-binding capture of peer
+        canvas.bind("<Button-1>", lambda _e, _p=peer: self.open_details(_p))
 
-            canvas.bind("<Button-1>", lambda e: self.open_details(peer))
+        self.peer_frames.append(frame)
 
-            self.peer_frames.append(peer_frame)
-            counter += 1
+    # ────────────────────────── Actions ──────────────────────────
 
-    def open_details(self, peer: PeerType) -> None:
-        popup = PeerDetailsOverlay(self.app, peer)
-        result = popup.show()
-        if result == "delete":
+    def open_details(self, peer: Peer) -> None:
+        result = PeerDetailsOverlay(self.app, peer).show()
+        if result in {"delete"}:
             self.num_peers_after_remove = self.num_peers - 1
             self.peer_page = 1
-            self.clear_peers()
-            self.display_peers()
-        if (
-            result == "pin_and_verify"
-            or result == "rename"
-            or result == "additional_ip"
-        ):
-            self.clear_peers()
-            self.display_peers()
+        self.refresh()
+
+    # ────────────────────────── Refresh / polling ──────────────────────────
+
+    def refresh(self) -> None:
+        self.clear_peers()
+        self.display_peers()
 
     def update_loop(self) -> None:
-        # function to update the GUI after
-        # removing peers (checks number of peers)
+        """Periodic check whether peer count changed on backend."""
         peers = self.data.get_peers()
-        if len(peers) > 0:
+        if peers:
             if (
                 len(peers) == self.num_peers_after_remove
                 or len(peers) != self.num_peers
             ):
                 try:
-                    self.clear_peers()
-                    self.display_peers()
+                    self.refresh()
                     self.num_peers_after_remove = 0
-                except Exception:
-                    PopupMessage.showPopupMessage(
-                        "Error", "Could not update peers"
-                    )
+                except Exception:  # noqa: BLE001
+                    PopupMessage.showPopupMessage("Error", "Could not update peers")
+        self.after(5_000, self.update_loop)
 
-        # check every 5 seconds if number of peers
-        # has changed.
-        self.after(5000, self.update_loop)
+    # ────────────────────────── Utils ──────────────────────────
 
     def clear_peers(self) -> None:
         for frame in self.peer_frames:
             frame.destroy()
-        self.app.update()
         self.peer_frames.clear()
 
-    def round_rectangle(
-        self,
-        canvas: Canvas,
-        x: int,
-        y: int,
-        w: int,
-        h: int,
-        r=25,
-        **kwargs,
-    ) -> None:
-        xr = x + r
-        yr = y + r
-        wr = w - r
-        hr = h - r
+    @staticmethod
+    def round_rectangle(canvas: Canvas, x: int, y: int, w: int, h: int, r: int = 25, **kw) -> None:
+        """Draw a rounded rectangle on *canvas*."""
         points = [
-            xr,
-            y,
-            xr,
-            y,
-            wr,
-            y,
-            wr,
-            y,
-            w,
-            y,
-            w,
-            yr,
-            w,
-            yr,
-            w,
-            hr,
-            w,
-            hr,
-            w,
-            h,
-            wr,
-            h,
-            wr,
-            h,
-            xr,
-            h,
-            xr,
-            h,
-            x,
-            h,
-            x,
-            hr,
-            x,
-            hr,
-            x,
-            yr,
-            x,
-            yr,
-            x,
-            y,
+            x + r, y,
+            w - r, y,
+            w, y,
+            w, y + r,
+            w, h - r,
+            w, h,
+            w - r, h,
+            x + r, h,
+            x, h,
+            x, h - r,
+            x, y + r,
+            x, y,
         ]
-        canvas.create_polygon(points, **kwargs, smooth=True)
+        canvas.create_polygon(points, **kw, smooth=True)

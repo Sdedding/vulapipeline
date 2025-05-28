@@ -1,12 +1,17 @@
-import gettext
+from __future__ import annotations
 
+import gettext
 import pkg_resources
 
-from .peers import Peers
-from .prefs import Prefs
+# re-export widgets
+from .peers import Peers  # noqa: F401
+from .prefs import Prefs  # noqa: F401
 
-locale_path = pkg_resources.resource_filename('vula', 'locale')
-lang_translations = gettext.translation(
-    domain="ui.view", localedir=locale_path, fallback=True
+# install translations for view namespace
+_locale_path = pkg_resources.resource_filename("vula", "locale")
+_gettext = gettext.translation(
+    domain="ui.view", localedir=_locale_path, fallback=True
 )
-lang_translations.install()
+_gettext.install()  # type: ignore[attr-defined]
+
+__all__: list[str] = ["Peers", "Prefs"]

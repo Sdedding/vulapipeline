@@ -2,7 +2,7 @@ import gettext
 import json
 import tkinter as tk
 
-from vula.frontend import DataProvider
+from vula.frontend.provider_factory import get_provider
 from vula.frontend.components import QRCodeLabel
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
@@ -20,7 +20,7 @@ _ = gettext.gettext
 
 
 class VerificationKeyOverlay(tk.Toplevel):
-    data = DataProvider()
+    data = get_provider()
 
     def __init__(self, parent: tk.Tk) -> None:
         tk.Toplevel.__init__(self, parent)

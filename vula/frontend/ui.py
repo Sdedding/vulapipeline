@@ -1,9 +1,18 @@
+"""Tk‑based main window for the Vula GUI.
+
+Refactor notes
+--------------
+* Uses *provider_factory.get_provider()* (no direct `DataProvider()`).
+* All other logic unchanged – only the backend wiring is different.
+"""
+from __future__ import annotations
+
 import gettext
 import tkinter as tk
 from tkinter import Button, Canvas, Frame, PhotoImage
 
 from vula import common
-from vula.frontend import DataProvider
+from vula.frontend.provider_factory import get_provider  # NEW
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
     FONT,
@@ -27,78 +36,58 @@ _ = gettext.gettext
 
 
 class App(tk.Tk):
-    def __init__(self, *args, **kwargs) -> None:
-        data = DataProvider()
-        tk.Tk.__init__(self, *args, **kwargs)
+    """Main dashboard window."""
 
-        self.geometry("{}x{}".format(WIDTH, HEIGHT))
+    def __init__(self, *args, **kwargs) -> None:  # noqa: D401
+        # ---------------- backend provider ----------------
+        self.provider = get_provider()  # replaces direct DataProvider()
+
+        # ---------------- Tk root init --------------------
+        super().__init__(*args, **kwargs)
+        self.geometry(f"{WIDTH}x{HEIGHT}")
         self.config(bg=BACKGROUND_COLOR)
 
-        # create all of the main containers
-        header_frame = Frame(
-            self, bg=BACKGROUND_COLOR, width=1200, height=50, pady=3
-        )
-        content_frame = Frame(
-            self, bg=BACKGROUND_COLOR, width=1200, height=600, padx=3, pady=3
-        )
+        # ========== layout frames ==========
+        header_frame = Frame(self, bg=BACKGROUND_COLOR, height=50, pady=3)
+        content_frame = Frame(self, bg=BACKGROUND_COLOR, height=600, padx=3, pady=3)
         footer_frame = Frame(
-            self, bg=BACKGROUND_COLOR, width=1200, height=150, pady=30, padx=30
+            self, bg=BACKGROUND_COLOR, height=150, pady=30, padx=30
         )
-        bottom_frame = Frame(
-            self, bg=BACKGROUND_COLOR, width=600, height=50, pady=3
-        )
+        bottom_frame = Frame(self, bg=BACKGROUND_COLOR, height=50, pady=3)
 
-        # layout all of the main containers
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
-
         header_frame.grid(row=0, sticky="ew")
         content_frame.grid(row=1, sticky="nsew")
         footer_frame.grid(row=2, sticky="e")
         bottom_frame.grid(row=3, sticky="s")
 
-        # create the center widgets
+        # ========== content panes ==========
         content_frame.grid_rowconfigure(0, weight=1)
         content_frame.grid_columnconfigure(1, weight=1)
 
-        pref_frame = Frame(
-            content_frame,
-            bg=BACKGROUND_COLOR,
-            width=600,
-            height=600,
-            padx=3,
-            pady=3,
-        )
+        pref_frame = Frame(content_frame, bg=BACKGROUND_COLOR, width=600, height=600)
         pref_frame.grid(row=0, column=0, sticky="ns")
         pref_frame.grid_propagate(False)
         self.prefs = Prefs(pref_frame)
 
-        peers_frame = Frame(
-            content_frame,
-            bg=BACKGROUND_COLOR,
-            width=600,
-            height=600,
-            padx=3,
-            pady=3,
-        )
+        peers_frame = Frame(content_frame, bg=BACKGROUND_COLOR, width=600, height=600)
         peers_frame.grid(row=0, column=1, sticky="nsew")
         peers_frame.grid_propagate(False)
-        self.peers_new = Peers(peers_frame)
-
+        self.peers_view = Peers(peers_frame)
         peers_frame.grid_columnconfigure(0, weight=1)
 
-        header = Canvas(
+        # ========== header ==========
+        header_canvas = Canvas(
             header_frame,
             bg=BACKGROUND_COLOR,
             height=50,
             width=1200,
             bd=0,
             highlightthickness=0,
-            relief="ridge",
         )
-
-        header.place(x=0, y=0)
-        header.create_text(
+        header_canvas.place(x=0, y=0)
+        header_canvas.create_text(
             30.0,
             10.0,
             anchor="nw",
@@ -107,106 +96,62 @@ class App(tk.Tk):
             font=(FONT, FONT_SIZE_HEADER),
         )
 
+        # ========== footer: verification key & descriptor ==========
         footer_frame.grid_rowconfigure(1, weight=1)
         footer_frame.grid_columnconfigure(1, weight=1)
 
-        vk_label = tk.Label(
+        tk.Label(
             footer_frame,
             text="Verification Key:",
             bg=BACKGROUND_COLOR,
             fg=TEXT_COLOR_WHITE,
             font=(FONT, FONT_SIZE_TEXT_L),
-        )
-        vk_label.grid(row=0, column=0, sticky="w")
+        ).grid(row=0, column=0, sticky="w")
 
-        self.button_image = PhotoImage(file=IMAGE_BASE_PATH + 'show_qr.png')
-        vk_button = tk.Button(
+        icon_qr = PhotoImage(file=IMAGE_BASE_PATH + "show_qr.png")
+        tk.Button(
             footer_frame,
-            text="Show QR",
-            image=self.button_image,
+            image=icon_qr,
+            command=self.open_vk_qr_code,
             borderwidth=0,
             highlightthickness=0,
             relief="sunken",
             background=BACKGROUND_COLOR,
             activebackground=BACKGROUND_COLOR,
-            activeforeground=BACKGROUND_COLOR,
-            command=lambda: self.open_vk_qr_code(),
-        )
-        vk_button.grid(row=0, column=1)
+        ).grid(row=0, column=1)
 
-        desc_label = tk.Label(
+        tk.Label(
             footer_frame,
             text="Descriptor:",
             bg=BACKGROUND_COLOR,
             fg=TEXT_COLOR_WHITE,
             font=(FONT, FONT_SIZE_TEXT_L),
-        )
-        desc_label.grid(row=1, column=0, sticky="w")
+        ).grid(row=1, column=0, sticky="w")
 
-        desc = DescriptorOverlay(self)
-
-        desc_button = tk.Button(
+        DescriptorOverlayBtn = DescriptorOverlay(self)
+        tk.Button(
             footer_frame,
-            text="Show QR",
-            image=self.button_image,
+            image=icon_qr,
+            command=DescriptorOverlayBtn.openNewWindow,
             borderwidth=0,
             highlightthickness=0,
             relief="sunken",
             background=BACKGROUND_COLOR,
             activebackground=BACKGROUND_COLOR,
-            activeforeground=BACKGROUND_COLOR,
-            command=lambda: desc.openNewWindow(),
-        )
-        desc_button.grid(row=1, column=1)
+        ).grid(row=1, column=1)
 
-        # Get the status of the different vula processes
-        state = data.get_status()
-
-        # @TODO: The case where state is None might have to be handled
-        # @TODO: differently
-        if state is None:
-            state = {
-                "publish": "no status available",
-                "discover": "no status available",
-                "organize": "no status available",
-            }
-
-        # Display the status at the bottom
-        status_label = tk.Label(
+        # ========== status bar ==========
+        status = self.provider.get_status()
+        tk.Label(
             bottom_frame,
-            text=f'Publish: {_(state["publish"])} '
-            f'\t Discover: {_(state["discover"])} '
-            f'\t Organize: {_(state["organize"])}',
+            text=f"Publish: {_(status.publish)} \t Discover: {_(status.discover)} \t Organize: {_(status.organize)}",
             bg=BACKGROUND_COLOR,
             fg=TEXT_COLOR_WHITE,
             font=(FONT, FONT_SIZE_TEXT_XL),
-        )
-        status_label.grid(row=0, column=0)
+        ).grid(row=0, column=0)
 
-        # Add different command
-        self.button_image_rediscover = PhotoImage(
-            file=IMAGE_BASE_PATH + 'rediscover.png'
-        )
-        btn_Rediscover = Button(
-            bottom_frame,
-            text="Rediscover",
-            image=self.button_image_rediscover,
-            borderwidth=0,
-            highlightthickness=0,
-            relief="sunken",
-            background=BACKGROUND_COLOR,
-            activebackground=BACKGROUND_COLOR,
-            activeforeground=BACKGROUND_COLOR,
-            command=lambda: self.rediscover(),
-        )
-        self.button_image_repair = PhotoImage(
-            file=IMAGE_BASE_PATH + 'repair.png'
-        )
-        btn_Repair = Button(
-            bottom_frame,
-            text="Repair",
-            image=self.button_image_repair,
-            command=lambda: self.repair(),
+        # ========== bottom commands ==========
+        btn_cfg = dict(
             borderwidth=0,
             highlightthickness=0,
             relief="sunken",
@@ -214,42 +159,31 @@ class App(tk.Tk):
             activebackground=BACKGROUND_COLOR,
             activeforeground=BACKGROUND_COLOR,
         )
-        self.button_image_gate = PhotoImage(
-            file=IMAGE_BASE_PATH + 'release_gateway.png'
-        )
-        btn_Release_Gateway = Button(
-            bottom_frame,
-            text="Release Gateway",
-            image=self.button_image_gate,
-            command=lambda: self.release_gateway(),
-            borderwidth=0,
-            highlightthickness=0,
-            relief="sunken",
-            background=BACKGROUND_COLOR,
-            activebackground=BACKGROUND_COLOR,
-            activeforeground=BACKGROUND_COLOR,
+        img_rediscover = PhotoImage(file=IMAGE_BASE_PATH + "rediscover.png")
+        Button(bottom_frame, image=img_rediscover, command=self.rediscover, **btn_cfg).grid(
+            row=0, column=1, pady=20, padx=(40, 20)
         )
 
-        info_Help = HelpOverlay(self)
-
-        self.button_image_help = PhotoImage(file=IMAGE_BASE_PATH + 'help.png')
-        btn_Help = Button(
-            bottom_frame,
-            text="Help",
-            image=self.button_image_help,
-            command=lambda: info_Help.openNewWindow(),
-            borderwidth=0,
-            highlightthickness=0,
-            relief="sunken",
-            background=BACKGROUND_COLOR,
-            activebackground=BACKGROUND_COLOR,
-            activeforeground=BACKGROUND_COLOR,
+        img_repair = PhotoImage(file=IMAGE_BASE_PATH + "repair.png")
+        Button(bottom_frame, image=img_repair, command=self.repair, **btn_cfg).grid(
+            row=0, column=2, pady=20, padx=20
         )
-        btn_Rediscover.grid(row=0, column=1, pady=(20, 20), padx=(40, 20))
-        btn_Repair.grid(row=0, column=2, pady=(20, 20), padx=(20, 20))
-        btn_Release_Gateway.grid(row=0, column=3, pady=(20, 20), padx=(20, 20))
-        btn_Help.grid(row=0, column=4, pady=(20, 20), padx=(20, 20))
 
+        img_gate = PhotoImage(file=IMAGE_BASE_PATH + "release_gateway.png")
+        Button(bottom_frame, image=img_gate, command=self.release_gateway, **btn_cfg).grid(
+            row=0, column=3, pady=20, padx=20
+        )
+
+        HelpOverlayBtn = HelpOverlay(self)
+        img_help = PhotoImage(file=IMAGE_BASE_PATH + "help.png")
+        Button(bottom_frame, image=img_help, command=HelpOverlayBtn.openNewWindow, **btn_cfg).grid(
+            row=0, column=4, pady=20, padx=20
+        )
+
+        # keep references to images (Tk GC)
+        self._img_refs = [icon_qr, img_rediscover, img_repair, img_gate, img_help]
+
+    # ───────────────────── helper callbacks ─────────────────────
     def rediscover(self) -> None:
         common.organize_dbus_if_active().rediscover()
 
@@ -263,10 +197,12 @@ class App(tk.Tk):
         VerificationKeyOverlay(self)
 
 
-def main() -> None:
+# ───────────────────────── entrypoint ─────────────────────────
+
+def main() -> None:  # noqa: D401
     try:
         app = App()
         app.title("Vula")
         app.mainloop()
-    except RuntimeError as e:
-        print(e)
+    except RuntimeError as exc:
+        print(exc)

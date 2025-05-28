@@ -1,4 +1,16 @@
+from __future__ import annotations
+
+"""
+Preferences widget – Tkinter implementation.
+
+Uses the dataclass-based :class:`vula.frontend.datadomain.Prefs`
+instead of the old dict/TypedDict representation.
+"""
+
 import gettext
+from dataclasses import asdict
+from typing import Dict, Union, Any
+
 import tkinter as tk
 from tkinter import (
     Button,
@@ -11,9 +23,9 @@ from tkinter import (
     Text,
 )
 from tkinter.constants import W
-from typing import cast
 
-from vula.frontend import DataProvider, PrefsType
+from vula.frontend import get_provider
+from vula.frontend.datadomain import Prefs as PrefsModel
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
     BACKGROUND_COLOR_CARD,
@@ -28,30 +40,63 @@ from vula.frontend.constants import (
     TEXT_COLOR_RED,
     TEXT_COLOR_WHITE,
 )
-from vula.frontend.dataprovider import PrefsTypeKeys
 from vula.frontend.overlay import PopupMessage
 
 _ = gettext.gettext
 
 
 class Prefs(Frame):
-    data = DataProvider()
+    """Editable preferences view."""
+
+    data = get_provider()
+
+    # map pref-name ➜ widget that holds the edited value
+    widgets: Dict[str, Union[Text, Button]]
 
     def __init__(self, frame: Frame) -> None:
+        super().__init__(frame)
+        self.frame = frame
+
         self.show_editable: bool = False
-        self.prefs: PrefsType
-        self.widgets: dict[str, Text | Button] = {}
-        self.frame: Frame = frame
+        self.prefs: PrefsModel
+        self.widgets = {}
 
         self.display_header()
         self.display_frames()
 
-        self.get_prefs()
+        self.reload_prefs()
         self.display_prefs()
         self.hide_save_cancel()
 
+    # ──────────────────────────── layout scaffolding ────────────────────────────
+
+    def display_header(self) -> None:
+        title_frame = Frame(
+            self.frame, bg=BACKGROUND_COLOR, padx=30, width=400, height=40
+        )
+        title_frame.grid(row=0, column=0, pady=(10, 0), sticky="w")
+
+        title = Canvas(
+            title_frame,
+            bg=BACKGROUND_COLOR,
+            height=40,
+            width=400,
+            bd=0,
+            highlightthickness=0,
+            relief="ridge",
+        )
+        title.place(x=0, y=0)
+        title.create_text(
+            0,
+            0,
+            anchor="nw",
+            text=_("Settings"),
+            fill=TEXT_COLOR_HEADER_2,
+            font=(FONT, FONT_SIZE_HEADER_2),
+        )
+
     def display_frames(self) -> None:
-        # Frames, Canvas and Scrollbars
+        # containers
         self.top_frame = Frame(
             self.frame,
             bg=BACKGROUND_COLOR,
@@ -62,7 +107,6 @@ class Prefs(Frame):
             highlightcolor=BACKGROUND_COLOR,
             highlightthickness=1,
         )
-
         self.bottom_frame = Frame(
             self.frame,
             bg=BACKGROUND_COLOR,
@@ -82,7 +126,6 @@ class Prefs(Frame):
             highlightcolor=BACKGROUND_COLOR_CARD,
             highlightthickness=1,
         )
-
         self.yscrollbar = Scrollbar(
             self.top_frame,
             orient="vertical",
@@ -97,17 +140,14 @@ class Prefs(Frame):
             highlightthickness=1,
         )
 
-        # Packing and configuring
+        # geometry / scrolling
         self.pref_canvas.pack(side="left", fill="y", expand=True)
-
         self.yscrollbar.pack(side="right", fill="y")
-
         self.pref_canvas.configure(yscrollcommand=self.yscrollbar.set)
-
         self.pref_canvas.bind(
-            '<Configure>',
-            lambda e: self.pref_canvas.configure(
-                scrollregion=self.pref_canvas.bbox('all')
+            "<Configure>",
+            lambda _e: self.pref_canvas.configure(
+                scrollregion=self.pref_canvas.bbox("all")
             ),
         )
         self.pref_canvas.create_window(
@@ -119,181 +159,158 @@ class Prefs(Frame):
         )
         self.bottom_frame.pack(side="left")
 
-        self.top_frame.columnconfigure(0, weight=1)
+        # buttons
+        self._build_action_buttons()
 
-        # Buttons
-        self.button_image_edit = PhotoImage(file=IMAGE_BASE_PATH + 'edit.png')
-
+    def _build_action_buttons(self) -> None:
+        self.button_image_edit = PhotoImage(file=IMAGE_BASE_PATH + "edit.png")
         self.button_image_save_blue = PhotoImage(
-            file=IMAGE_BASE_PATH + 'save_blue.png'
+            file=IMAGE_BASE_PATH + "save_blue.png"
         )
-
         self.button_image_cancel = PhotoImage(
-            file=IMAGE_BASE_PATH + 'cancel.png'
+            file=IMAGE_BASE_PATH + "cancel.png"
         )
 
         self.btn_edit = Button(
             master=self.bottom_frame,
             image=self.button_image_edit,
-            command=lambda: self.set_editable(),
+            command=self.set_editable,
             borderwidth=0,
             highlightthickness=0,
             relief="sunken",
             background=BACKGROUND_COLOR,
             activebackground=BACKGROUND_COLOR,
-            activeforeground=BACKGROUND_COLOR,
         )
         self.btn_save = Button(
             self.bottom_frame,
             image=self.button_image_save_blue,
-            command=lambda: self.save_prefs(),
+            command=self.save_prefs,
             borderwidth=0,
             highlightthickness=0,
             relief="sunken",
             background=BACKGROUND_COLOR,
             activebackground=BACKGROUND_COLOR,
-            activeforeground=BACKGROUND_COLOR,
         )
         self.btn_cancel = Button(
             self.bottom_frame,
             image=self.button_image_cancel,
-            command=lambda: self.cancel(),
+            command=self.cancel,
             borderwidth=0,
             highlightthickness=0,
             relief="sunken",
             background=BACKGROUND_COLOR,
             activebackground=BACKGROUND_COLOR,
-            activeforeground=BACKGROUND_COLOR,
         )
         self.btn_edit.pack(side="left", padx=10, pady=10)
 
-    def display_header(self) -> None:
-        self.title_frame = Frame(
-            self.frame, bg=BACKGROUND_COLOR, padx=30, width=400, height=40
-        )
-        title = Canvas(
-            self.title_frame,
-            bg=BACKGROUND_COLOR,
-            height=40,
-            width=400,
-            bd=0,
-            highlightthickness=0,
-            relief="ridge",
-        )
-        title.place(x=0, y=0)
-        title.create_text(
-            0,
-            0,
-            anchor="nw",
-            text="Settings",
-            fill=TEXT_COLOR_HEADER_2,
-            font=(FONT, FONT_SIZE_HEADER_2),
-        )
-        self.title_frame.grid(row=0, column=0, pady=(10, 0), sticky="w")
+    # ──────────────────────────── backend interaction ────────────────────────────
 
-    def get_prefs(self) -> None:
+    def reload_prefs(self) -> None:
+        """Fetch preferences from backend."""
         self.prefs = self.data.get_prefs()
 
-    def toggle(self, event: Event) -> None:
-        """
-        Toggle bool button value
-        """
-        if event.widget["text"] == "True":
-            event.widget.config(text="False", bg=TEXT_COLOR_RED)
-        elif event.widget["text"] == "False":
-            event.widget.config(text="True", bg=TEXT_COLOR_GREEN)
+    # ──────────────────────────── editing helpers ────────────────────────────
 
-    def bool_on_enter(self, event: Event) -> None:
-        if event.widget["text"] == "True":
-            event.widget.config(bg=TEXT_COLOR_BLACK)
+    @staticmethod
+    def _toggle_bool_button(event: Event) -> None:  # noqa: D401
+        """Toggle a boolean button value."""
+        widget: Button = event.widget  # type: ignore[assignment]
+        if widget["text"] == "True":
+            widget.config(text="False", bg=TEXT_COLOR_RED)
         else:
-            event.widget.config(bg=TEXT_COLOR_BLACK)
+            widget.config(text="True", bg=TEXT_COLOR_GREEN)
 
-    def bool_on_leave(self, event: Event) -> None:
-        if event.widget["text"] == "True":
-            event.widget.config(bg=TEXT_COLOR_GREEN)
-        else:
-            event.widget.config(bg=TEXT_COLOR_RED)
+    @staticmethod
+    def _bool_on_enter(event: Event) -> None:
+        event.widget.config(bg=TEXT_COLOR_BLACK)
+
+    @staticmethod
+    def _bool_on_leave(event: Event) -> None:
+        widget: Button = event.widget  # type: ignore[assignment]
+        widget.config(bg=TEXT_COLOR_GREEN if widget["text"] == "True" else TEXT_COLOR_RED)
+
+    # ──────────────────────────── save / cancel ────────────────────────────
 
     def save_prefs(self) -> None:
-        for pref, values in self.prefs.items():
-            _pref: PrefsTypeKeys = cast(PrefsTypeKeys, pref)
-            widget_type = self.widgets[pref]
-            if isinstance(widget_type, Text):
-                widget = widget_type
-                if type(values) == list:
-                    current_list = widget.get("1.0", "end").split()
-                    for value in current_list:
-                        if isinstance(value, list):
-                            if value not in self.prefs[_pref]:
-                                res = self.data.add_pref(pref, value)
-                                if self.show_error(res) == 1:
-                                    return
-                    for value in values:
-                        if value not in current_list:
-                            res = self.data.remove_pref(pref, value)
-                            if self.show_error(res) == 1:
-                                return
+        """Write modified preferences back through the provider API."""
+        orig = asdict(self.prefs)
 
-                # boolean based prefs
-                elif type(values) == bool:
-                    bool_value = str(self.widgets[pref]["text"])
-                    res = self.data.set_pref(pref, bool_value)
-                    if self.show_error(res) == 1:
-                        return
-                # int based prefs
-                elif type(values) == int:
-                    int_value = str(widget[pref].get("1.0", "end"))
-                    res = self.data.set_pref(pref, int_value)
-                    if self.show_error(res) == 1:
+        for key, original_value in orig.items():
+            widget = self.widgets.get(key)
+            if widget is None:
+                continue
+
+            # list preferences (Text widget with newline-separated items)
+            if isinstance(original_value, list) and isinstance(widget, Text):
+                current_list = widget.get("1.0", "end").strip().splitlines()
+                # additions
+                for val in current_list:
+                    if val and val not in original_value:
+                        if self._check_err(self.data.add_pref(key, val)):
+                            return
+                # removals
+                for val in original_value:
+                    if val not in current_list:
+                        if self._check_err(self.data.remove_pref(key, val)):
+                            return
+
+            # boolean preference (Button toggle)
+            elif isinstance(original_value, bool) and isinstance(widget, Button):
+                new_val = widget["text"] == "True"
+                if new_val != original_value:
+                    if self._check_err(self.data.set_pref(key, new_val)):
                         return
 
-        self.get_prefs()
+            # int preference (single-line Text)
+            elif isinstance(original_value, int) and isinstance(widget, Text):
+                try:
+                    new_int = int(widget.get("1.0", "end").strip())
+                except ValueError:
+                    PopupMessage.showPopupMessage("Error", "Invalid integer value")
+                    return
+                if new_int != original_value:
+                    if self._check_err(self.data.set_pref(key, new_int)):
+                        return
+
+        # success – reload + redraw
+        self.reload_prefs()
         self.show_editable = False
         self.hide_save_cancel()
-        self.update_all()
+        self.refresh_view()
 
-    def show_error(self, res: str) -> int:
-        """
-        Show error message if needed and return a status code 0 or 1
-
-        >>> Prefs.show_error(Prefs, 'Test')
-        0
-        """
-        if res and "error:" in res:
-            PopupMessage.showPopupMessage(
-                "Error", "Preference could not be saved"
-            )
-            return 1
-        else:
-            return 0
+    def _check_err(self, res: Any) -> bool:
+        """Return True if *res* indicates an error and show popup."""
+        if isinstance(res, str) and res.lower().startswith("error"):
+            PopupMessage.showPopupMessage("Error", str(res))
+            return True
+        return False
 
     def cancel(self) -> None:
-        self.get_prefs()
+        self.reload_prefs()
         self.show_editable = False
-        self.update_all()
         self.hide_save_cancel()
+        self.refresh_view()
+
+    # ──────────────────────────── view refresh helpers ────────────────────────────
 
     def set_editable(self) -> None:
-        """
-        Set pref variables as editable and update the prefs view
-        """
         self.show_editable = True
-        self.update_all()
         self.show_save_cancel()
+        self.refresh_view()
 
-    def update_all(self) -> None:
-        """
-        Remove everything from the prefs view and display the new state
-        """
-        for label in self.pref_content_frame.grid_slaves():
-            label.grid_forget()
+    def refresh_view(self) -> None:
+        """Clear and rebuild preference table."""
+        for widget in self.pref_content_frame.grid_slaves():
+            widget.grid_forget()
         self.pref_canvas.destroy()
         self.yscrollbar.destroy()
         self.top_frame.destroy()
         self.bottom_frame.destroy()
+
         self.display_frames()
         self.display_prefs()
+
+    # ──────────────────────────── save / cancel button visibility ────────────────────────────
 
     def show_save_cancel(self) -> None:
         self.btn_edit.pack_forget()
@@ -305,146 +322,109 @@ class Prefs(Frame):
         self.btn_save.pack_forget()
         self.btn_cancel.pack_forget()
 
-    def display_prefs(self) -> None:
-        # row counter
-        counter: int = 1
+    # ──────────────────────────── preference table ────────────────────────────
 
-        # Loop over all preferences and display them
-        for pref, value in self.prefs.items():
-            # show preference descriptions on the left
-            pref_label = Label(
+    def display_prefs(self) -> None:
+        """Render the preference list (read-only or editable)."""
+        pref_dict = asdict(self.prefs)
+        self.widgets.clear()
+        row = 1
+
+        for key, value in pref_dict.items():
+            # left-hand label
+            Label(
                 self.pref_content_frame,
-                text=_(str(pref)) + ":",
+                text=_(key) + ":",
                 font=(FONT, FONT_SIZE_TEXT_XL),
                 fg=TEXT_COLOR_WHITE,
-                height=1,
-                anchor="nw",
                 bg=BACKGROUND_COLOR_CARD,
-            )
-            pref_label.grid(row=counter, column=0, padx=2, pady=2, sticky="nw")
+                anchor="nw",
+            ).grid(row=row, column=0, padx=2, pady=2, sticky="nw")
 
-            # list based preferences
-            if type(value) == list:
+            # ----- list preferences -----
+            if isinstance(value, list):
                 if self.show_editable:
-                    value_text = Text(
+                    txt = Text(
                         self.pref_content_frame,
-                        height=len(value),
+                        height=max(len(value), 1),
                         width=20,
                         bg=BACKGROUND_COLOR_CARD,
                         fg=TEXT_COLOR_GREY,
                         highlightbackground=BACKGROUND_COLOR_CARD,
                         insertbackground=TEXT_COLOR_WHITE,
                     )
-                    self.widgets[pref] = value_text
-                    for element in value:
-                        value_text.insert(tk.END, element + "\n")
-
-                    value_text.grid(
-                        row=counter, column=1, padx=1, pady=1, sticky=W
-                    )
-                    counter += 1
-
+                    txt.insert(tk.END, "\n".join(value))
+                    txt.grid(row=row, column=1, padx=1, pady=1, sticky=W)
+                    self.widgets[key] = txt
                 else:
-                    if len(value) == 0:
-                        value_label = Label(
-                            self.pref_content_frame,
-                            text="None",
-                            font=(FONT, FONT_SIZE_TEXT_XL),
-                            bg=BACKGROUND_COLOR_CARD,
-                            fg=TEXT_COLOR_WHITE,
-                        )
-                        value_label.grid(
-                            row=counter, column=1, padx=1, pady=1, sticky=W
-                        )
-                        counter += 1
+                    if not value:
+                        value = ["None"]
                     for element in value:
-                        value_label = Label(
+                        Label(
                             self.pref_content_frame,
                             text=str(element),
                             font=(FONT, FONT_SIZE_TEXT_XL),
                             bg=BACKGROUND_COLOR_CARD,
                             fg=TEXT_COLOR_WHITE,
-                        )
-                        value_label.grid(
-                            row=counter, column=1, padx=1, pady=1, sticky=W
-                        )
-                        counter += 1
+                        ).grid(row=row, column=1, padx=1, pady=1, sticky=W)
+                        row += 1
+                    continue  # already advanced row
 
-            # bool based preferences (as string)
-            elif type(value) == bool:
-                if str(value) == "True":
-                    color = TEXT_COLOR_GREEN
-                    font_color = TEXT_COLOR_GREEN
-                    font_color_button = TEXT_COLOR_WHITE
-
-                if str(value) == "False":
-                    color = TEXT_COLOR_RED
-                    font_color = TEXT_COLOR_RED
-                    font_color_button = TEXT_COLOR_WHITE
-
+            # ----- boolean preference -----
+            elif isinstance(value, bool):
                 if self.show_editable:
-                    btn_bool = Button(
+                    color = TEXT_COLOR_GREEN if value else TEXT_COLOR_RED
+                    btn = Button(
                         self.pref_content_frame,
-                        text=(str(value)),
+                        text=str(value),
                         width=5,
                         height=1,
                         bg=color,
-                        fg=font_color_button,
+                        fg=TEXT_COLOR_WHITE,
                         highlightbackground=BACKGROUND_COLOR_CARD,
-                        highlightcolor=BACKGROUND_COLOR_CARD,
                         borderwidth=0,
                         highlightthickness=0,
                         relief="flat",
                     )
-                    btn_bool.widgetName = [pref]
-                    self.widgets[pref] = btn_bool
-                    btn_bool.grid(
-                        row=counter, column=1, padx=1, pady=1, sticky=W
-                    )
-
-                    btn_bool.bind("<Leave>", self.bool_on_leave)
-                    btn_bool.bind("<Enter>", self.bool_on_enter)
-                    btn_bool.bind("<Button-1>", self.toggle)
+                    btn.grid(row=row, column=1, padx=1, pady=1, sticky=W)
+                    btn.bind("<Leave>", self._bool_on_leave)
+                    btn.bind("<Enter>", self._bool_on_enter)
+                    btn.bind("<Button-1>", self._toggle_bool_button)
+                    self.widgets[key] = btn
                 else:
-                    label = Label(
+                    Label(
                         self.pref_content_frame,
                         text=str(value),
                         font=(FONT, FONT_SIZE_TEXT_XL),
                         bg=BACKGROUND_COLOR_CARD,
-                        fg=font_color,
-                    )
-                    label.grid(row=counter, column=1, padx=1, pady=1, sticky=W)
+                        fg=TEXT_COLOR_GREEN if value else TEXT_COLOR_RED,
+                    ).grid(row=row, column=1, padx=1, pady=1, sticky=W)
 
-                counter += 1
-
-            # int based preference
-            elif type(value) == int:
+            # ----- int preference -----
+            elif isinstance(value, int):
                 if self.show_editable:
-                    value_text = Text(
+                    txt = Text(
                         self.pref_content_frame,
                         height=1,
                         width=20,
                         bg=BACKGROUND_COLOR_CARD,
                         fg=TEXT_COLOR_GREY,
                         highlightbackground=BACKGROUND_COLOR_CARD,
-                        highlightcolor=BACKGROUND_COLOR_CARD,
                         insertbackground=TEXT_COLOR_WHITE,
                     )
-                    self.widgets[pref] = value_text
-                    value_text.grid(
-                        row=counter, column=1, padx=1, pady=1, sticky=W
-                    )
-                    value_text.insert(tk.END, str(value))
+                    txt.insert(tk.END, str(value))
+                    txt.grid(row=row, column=1, padx=1, pady=1, sticky=W)
+                    self.widgets[key] = txt
                 else:
-                    label = Label(
+                    Label(
                         self.pref_content_frame,
                         text=str(value),
                         font=(FONT, FONT_SIZE_TEXT_XL),
                         bg=BACKGROUND_COLOR_CARD,
                         fg=TEXT_COLOR_WHITE,
-                    )
-                    label.grid(row=counter, column=1, padx=1, pady=1, sticky=W)
-                counter += 1
+                    ).grid(row=row, column=1, padx=1, pady=1, sticky=W)
+
+            row += 1
 
 
 if __name__ == "__main__":
