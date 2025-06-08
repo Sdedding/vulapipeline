@@ -228,19 +228,30 @@ def main() -> None:  # noqa: 901
                 self._get_open_gui_menu_item(),
                 MenuItem("Quit", self._remove_tray_icon),
             ]
-            
 
         def _update_icon(self) -> NoReturn:
-            """
-            Updates the menu items in the system-tray icon.
-            """
+            def get_menu_snapshot(menu_items: List[MenuItem]) -> List[str]:
+                snapshot = []
+                for item in menu_items:
+                    snapshot.append(item.text)
+                    if item.submenu:
+                        snapshot.extend(subitem.text for subitem in item.submenu.items)
+                return snapshot
+
             while True:
-                if self.menu_items_snapshot != self._get_menu_items():
-                    self.menu_items_snapshot = self._get_menu_items()
-                    self.icon.update_menu()
-                    
-                else:
-                    sleep(_TRAY_UPDATE_INTERVAL)
+                try:
+                    new_menu_items = self._get_menu_items()
+                    new_snapshot = get_menu_snapshot(new_menu_items)
+                    old_snapshot = get_menu_snapshot(self.menu_items) if self.menu_items else []
+
+                    if new_snapshot != old_snapshot:
+                        self.menu_items = new_menu_items
+                        self.icon.menu = Menu(*self.menu_items)
+                        self.icon.update_menu()
+                except Exception as e:
+                    print(f"[Tray Debug] Menu update failed: {e}")
+
+                sleep(_TRAY_UPDATE_INTERVAL)
 
         def _setup_icon(self, icon: Icon) -> None:
             """
