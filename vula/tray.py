@@ -48,6 +48,9 @@ def main() -> None:  # noqa: 901
         icon: Icon
         organize_bus: Any
         systemd_bus: Any
+        menu_items: Any
+        menu_items_snapshot:Any
+
 
         def __init__(self):
             try:
@@ -55,7 +58,10 @@ def main() -> None:  # noqa: 901
                 self.organize_dbus = self.system_bus.get(
                     _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
                 )
+
                 self.systemd_bus = self.system_bus.get(".systemd1")
+                initial_items = self._get_menu_items()
+                self.icon = Icon("Vula", self._get_icon(), menu=Menu(*initial_items))
             except GLib.Error:
                 print("Vula is not running.")
                 sys.exit(3)
@@ -215,6 +221,7 @@ def main() -> None:  # noqa: 901
             >>> len(items)
             7
             """
+
             return [
                 *self._get_status_menu_items(),
                 self._get_peer_menu_item(),
@@ -224,11 +231,33 @@ def main() -> None:  # noqa: 901
             ]
 
         def _update_icon(self) -> NoReturn:
-            """
-            Updates the menu items in the system-tray icon.
-            """
+            def get_menu_snapshot(menu_items: List[MenuItem]) -> List[str]:
+                snapshot = []
+                for item in menu_items:
+                    snapshot.append(item.text)
+                    if item.submenu:
+                        snapshot.extend(subitem.text for subitem in item.submenu.items)
+                return snapshot
+
+            last_snapshot = []
+
             while True:
-                self.icon.update_menu()
+                try:
+                    # Generate new menu
+                    new_menu_items = self._get_menu_items()
+                    new_snapshot = get_menu_snapshot(new_menu_items)
+
+                    # Compare with last snapshot
+                    if new_snapshot != last_snapshot:
+                        print("[Tray] Menu changed, updating.")
+                        last_snapshot = new_snapshot
+                        self.icon.menu = Menu(*new_menu_items)
+                        self.icon.update_menu()
+                    else:
+                        print("[Tray] No menu changes.")
+                except Exception as e:
+                    print(f"[Tray Error] Failed to update menu: {e}")
+
                 sleep(_TRAY_UPDATE_INTERVAL)
 
         def _setup_icon(self, icon: Icon) -> None:
@@ -260,6 +289,14 @@ def main() -> None:  # noqa: 901
             )
 
             icon.run(self._setup_icon)
+
+
+
+
+
+
+
+
 
     tray: Tray = Tray()
     tray.show()
