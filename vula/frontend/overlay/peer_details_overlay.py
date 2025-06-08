@@ -109,7 +109,6 @@ class PeerDetailsOverlay(tk.Toplevel):
 
         self.top_frame.columnconfigure(0, weight=1)
 
-        self.label = tk.Label(frame, text="test")
 
         # Title
         self.canvas.create_text(

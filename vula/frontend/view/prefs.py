@@ -219,16 +219,15 @@ class Prefs(Frame):
         for pref, values in prefs_dict.items():
             _pref: PrefsTypeKeys = cast(PrefsTypeKeys, pref)
             widget_type = self.widgets[pref]
-            if isinstance(widget_type, Text):
+            if isinstance(widget_type, (Text, Button)):
                 widget = widget_type
                 if isinstance(values, list):
                     current_list = widget.get("1.0", "end").split()
                     for value in current_list:
-                        if isinstance(value, list):
-                            if value not in prefs_dict[_pref]:
-                                res = self.data.add_pref(pref, value)
-                                if self.show_error(res) == 1:
-                                    return
+                        if value not in prefs_dict[_pref]:
+                            res = self.data.add_pref(pref, value)
+                            if self.show_error(res) == 1:
+                                return
                     for value in values:
                         if value not in current_list:
                             res = self.data.remove_pref(pref, value)
@@ -243,7 +242,7 @@ class Prefs(Frame):
                         return
                 # int based prefs
                 elif isinstance(values, int):
-                    int_value = str(widget[pref].get("1.0", "end"))
+                    int_value = str(widget.get("1.0", "end"))
                     res = self.data.set_pref(pref, int_value)
                     if self.show_error(res) == 1:
                         return
