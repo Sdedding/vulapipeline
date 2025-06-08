@@ -1,12 +1,13 @@
-from typing import List, TypedDict, Literal, cast, Optional
+from dataclasses import dataclass
+from typing import List, Literal, Optional, TypedDict, cast
 
 from logging import getLogger
-import pydbus
 
 from vula.backend import OrganizeBackend
 
 
-class PeerType(TypedDict):
+@dataclass
+class Peer:
     name: Optional[str]
     id: Optional[str]
     other_names: Optional[str]
@@ -24,7 +25,8 @@ class StatusType(TypedDict):
     organize: str
 
 
-class PrefsType(TypedDict):
+@dataclass
+class Prefs:
     pin_new_peers: bool
     accept_nonlocal: bool
     auto_repair: bool
@@ -37,6 +39,39 @@ class PrefsType(TypedDict):
     record_events: bool
     expire_time: int
     overwrite_unpinned: bool
+
+
+def peer_from_dict(data: dict) -> Peer:
+    """Convert a raw dict from organize into :class:`Peer`."""
+    return Peer(
+        name=data.get("name"),
+        id=data.get("id"),
+        other_names=data.get("other_names"),
+        status=data.get("status"),
+        endpoint=data.get("endpoint"),
+        allowed_ips=data.get("allowed_ips"),
+        latest_signature=data.get("latest_signature"),
+        latest_handshake=data.get("latest_handshake"),
+        wg_pubkey=data.get("wg_pubkey"),
+    )
+
+
+def prefs_from_dict(data: dict) -> Prefs:
+    """Convert a raw dict from organize into :class:`Prefs`."""
+    return Prefs(
+        pin_new_peers=data.get("pin_new_peers", False),
+        accept_nonlocal=data.get("accept_nonlocal", False),
+        auto_repair=data.get("auto_repair", False),
+        subnets_allowed=data.get("subnets_allowed", []),
+        subnets_forbidden=data.get("subnets_forbidden", []),
+        iface_prefix_allowed=data.get("iface_prefix_allowed", []),
+        local_domains=data.get("local_domains", []),
+        ephemeral_mode=data.get("ephemeral_mode", False),
+        accept_default_route=data.get("accept_default_route", False),
+        record_events=data.get("record_events", False),
+        expire_time=data.get("expire_time", 0),
+        overwrite_unpinned=data.get("overwrite_unpinned", False),
+    )
 
 
 PrefsTypeKeys = Literal[
@@ -60,16 +95,16 @@ class DataProvider:
         self.log = getLogger(__name__)
         self.backend = OrganizeBackend()
 
-    def get_peers(self) -> List[PeerType]:
+    def get_peers(self) -> List[Peer]:
         ids = self.backend.peer_ids("enabled")
-        peers: List[PeerType] = []
+        peers: List[Peer] = []
         for peer_id in ids:
             info = self.backend.get_peer_info(peer_id)
-            peers.append(cast(PeerType, info))
+            peers.append(peer_from_dict(info))
         return peers
 
-    def get_prefs(self) -> PrefsType:
-        return cast(PrefsType, self.backend.get_prefs())
+    def get_prefs(self) -> Prefs:
+        return prefs_from_dict(self.backend.get_prefs())
 
     def get_status(self) -> Optional[StatusType]:
         # Fetch the data from the systemd dbus
@@ -120,3 +155,14 @@ class DataProvider:
 
     def remove_pref(self, pref, value):
         self.backend.remove_pref(pref, value)
+
+
+_provider: Optional[DataProvider] = None
+
+
+def get_provider() -> DataProvider:
+    """Return a singleton instance of :class:`DataProvider`."""
+    global _provider
+    if _provider is None:
+        _provider = DataProvider()
+    return _provider

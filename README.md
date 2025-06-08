@@ -22,6 +22,11 @@ Vula's advantages over other solutions include:
 
 See [`Comparison of LAN tunneling tools`](https://codeberg.org/vula/vula/src/branch/main/www-vula/content/comparison.md) for a detailed comparison of Vula to related projects.
 
+## Translations
+
+The GUI uses gettext for localization. Translations are loaded at import time
+by `vula/frontend/__init__.py`, which installs the `_` function globally.
+
 # Current status
 
 [![status-badge](https://ci.codeberg.org/api/badges/vula/vula/status.svg)](https://ci.codeberg.org/vula/vula)

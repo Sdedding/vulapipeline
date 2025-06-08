@@ -7,15 +7,27 @@ from threading import Lock
 from dataclasses import dataclass
 
 from schema import Optional, Schema, Use
+from .common import raw, schemattrdict, yamlfile, yamlrepr_hl
 
 
 @dataclass
 class WriteOp:
+    """A pending write operation recorded during event processing.
+
+    Attributes
+    ----------
+    kind:
+        The type of write, one of ``SET``, ``ADD`` or ``REMOVE``.
+    path:
+        A sequence describing the key path inside the state structure
+        affected by this write.
+    value:
+        The value associated with the operation.
+    """
+
     kind: str
     path: object
     value: object
-
-from .common import raw, schemattrdict, yamlfile, yamlrepr_hl
 
 
 class Result(yamlrepr_hl, schemattrdict):
@@ -262,6 +274,8 @@ class Engine(schemattrdict, yamlfile):
 
         @wraps(method)
         def _method(self, path, value):
+            if isinstance(path, str):
+                path = tuple(path.split('.'))
             self.result.writes.append(WriteOp(name, path, value))
             return None
 

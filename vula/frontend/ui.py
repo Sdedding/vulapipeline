@@ -1,9 +1,8 @@
-import gettext
 import tkinter as tk
 from tkinter import Button, Canvas, Frame, PhotoImage
 
 from vula import common
-from vula.frontend import DataProvider
+from vula.frontend import get_provider
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
     FONT,
@@ -22,13 +21,12 @@ from vula.frontend.overlay import (
     VerificationKeyOverlay,
 )
 from vula.frontend.view import Peers, Prefs
-
-_ = gettext.gettext
+from builtins import _
 
 
 class App(tk.Tk):
     def __init__(self, *args, **kwargs) -> None:
-        data = DataProvider()
+        self.data = get_provider()
         tk.Tk.__init__(self, *args, **kwargs)
 
         self.geometry("{}x{}".format(WIDTH, HEIGHT))
@@ -71,7 +69,7 @@ class App(tk.Tk):
         )
         pref_frame.grid(row=0, column=0, sticky="ns")
         pref_frame.grid_propagate(False)
-        self.prefs = Prefs(pref_frame)
+        self.prefs = Prefs(pref_frame, self.data)
 
         peers_frame = Frame(
             content_frame,
@@ -83,7 +81,7 @@ class App(tk.Tk):
         )
         peers_frame.grid(row=0, column=1, sticky="nsew")
         peers_frame.grid_propagate(False)
-        self.peers_new = Peers(peers_frame)
+        self.peers_new = Peers(peers_frame, self.data)
 
         peers_frame.grid_columnconfigure(0, weight=1)
 
@@ -143,7 +141,7 @@ class App(tk.Tk):
         )
         desc_label.grid(row=1, column=0, sticky="w")
 
-        desc = DescriptorOverlay(self)
+        desc = DescriptorOverlay(self, self.data)
 
         desc_button = tk.Button(
             footer_frame,
@@ -160,7 +158,7 @@ class App(tk.Tk):
         desc_button.grid(row=1, column=1)
 
         # Get the status of the different vula processes
-        state = data.get_status()
+        state = self.data.get_status()
 
         # @TODO: The case where state is None might have to be handled
         # @TODO: differently
@@ -260,7 +258,7 @@ class App(tk.Tk):
         common.organize_dbus_if_active().sync(True)
 
     def open_vk_qr_code(self) -> None:
-        VerificationKeyOverlay(self)
+        VerificationKeyOverlay(self, self.data)
 
 
 def main() -> None:

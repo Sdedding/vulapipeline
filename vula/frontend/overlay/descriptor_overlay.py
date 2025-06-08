@@ -1,4 +1,3 @@
-import gettext
 import json
 import tkinter as tk
 
@@ -14,15 +13,13 @@ from vula.frontend.constants import (
 )
 from vula.peer import Descriptor
 
-_ = gettext.gettext
-
 
 class DescriptorOverlay(tk.Toplevel):
-    def __init__(self, parent: tk.Tk) -> None:
+    def __init__(self, parent: tk.Tk, data: DataProvider) -> None:
         self.root = parent
+        self.data = data
 
     def openNewWindow(self) -> None:
-        data = DataProvider()
         newWindow = tk.Toplevel(self.root)
         newWindow.wm_transient(self.root)
 
@@ -67,7 +64,7 @@ class DescriptorOverlay(tk.Toplevel):
 
         my_descriptors = {
             ip: Descriptor(d)
-            for ip, d in json.loads(data.our_latest_descriptors()).items()
+            for ip, d in json.loads(self.data.our_latest_descriptors()).items()
         }
 
         for ip, desc in my_descriptors.items():

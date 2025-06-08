@@ -1,9 +1,8 @@
-import gettext
 import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Literal
 
-from vula.frontend import DataProvider, PeerType
+from vula.frontend import DataProvider, Peer
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
     BACKGROUND_COLOR_ENTRY,
@@ -18,23 +17,23 @@ from vula.frontend.constants import (
 )
 
 from .popupMessage import PopupMessage
-
-_ = gettext.gettext
+from builtins import _
 
 
 class PeerDetailsOverlay(tk.Toplevel):
-    data = DataProvider()
-
-    def __init__(self, parent: tk.Frame, peer: PeerType) -> None:
+    def __init__(
+        self, parent: tk.Frame, peer: Peer, data: DataProvider
+    ) -> None:
         tk.Toplevel.__init__(self, parent)
         self.app = parent
         self.peer = peer
+        self.data = data
 
-        self.id = peer["id"]
-        if peer["name"]:
-            self.name = peer["name"]
+        self.id = peer.id
+        if peer.name:
+            self.name = peer.name
         else:
-            self.name = peer["other_names"] or ""
+            self.name = peer.other_names or ""
 
         self.title("Vula | Peer Details: " + self.name)
         self.geometry("520x500")
@@ -131,7 +130,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             image=self.button_delete_image,
             borderwidth=0,
             highlightthickness=0,
-            command=lambda: self.delete_peer(self.peer["id"] or "", self.name),
+            command=lambda: self.delete_peer(self.peer.id or "", self.name),
             relief="sunken",
             background=BACKGROUND_COLOR,
             activebackground=BACKGROUND_COLOR,
@@ -162,7 +161,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             fg=TEXT_COLOR_BLACK,
             highlightthickness=0,
         )
-        self.entry_name.insert(0, self.peer["name"] or "")
+        self.entry_name.insert(0, self.peer.name or "")
         self.entry_name.place(x=45.5, y=114.0, width=129.0, height=23.0)
 
         # name save
@@ -196,7 +195,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             194.0,
             anchor="nw",
-            text=self.peer["id"] or "",
+            text=self.peer.id or "",
             fill=TEXT_COLOR_ORANGE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
@@ -209,7 +208,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             image=self.button_image_copy_id,
             borderwidth=0,
             highlightthickness=0,
-            command=lambda: self.add_to_clipbaord(self.peer["id"] or ""),
+            command=lambda: self.add_to_clipbaord(self.peer.id or ""),
             relief="sunken",
             background=BACKGROUND_COLOR,
             activebackground=BACKGROUND_COLOR,
@@ -231,7 +230,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             262.0,
             anchor="nw",
-            text=self.peer["other_names"] or "",
+            text=self.peer.other_names or "",
             fill=TEXT_COLOR_ORANGE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
@@ -250,7 +249,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             330.0,
             anchor="nw",
-            text=self.peer["status"] or "",
+            text=self.peer.status or "",
             fill=TEXT_COLOR_ORANGE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
@@ -285,7 +284,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             398.0,
             anchor="nw",
-            text=self.peer["endpoint"] or "",
+            text=self.peer.endpoint or "",
             fill=TEXT_COLOR_ORANGE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
@@ -304,7 +303,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             466.0,
             anchor="nw",
-            text=str(self.peer["allowed_ips"]),
+            text=str(self.peer.allowed_ips),
             fill=TEXT_COLOR_ORANGE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
@@ -323,7 +322,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             534.0,
             anchor="nw",
-            text=self.peer["latest_signature"] or "",
+            text=self.peer.latest_signature or "",
             fill=TEXT_COLOR_ORANGE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
@@ -342,7 +341,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             602.0,
             anchor="nw",
-            text=self.peer["latest_handshake"] or "",
+            text=self.peer.latest_handshake or "",
             fill=TEXT_COLOR_ORANGE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
@@ -361,7 +360,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             670.0,
             anchor="nw",
-            text=self.peer["wg_pubkey"] or "",
+            text=self.peer.wg_pubkey or "",
             fill=TEXT_COLOR_ORANGE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
@@ -375,7 +374,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             borderwidth=0,
             highlightthickness=0,
             command=lambda: self.add_to_clipbaord(
-                self.peer["wg_pubkey"] or ""
+                self.peer.wg_pubkey or ""
             ),
             relief="sunken",
             background=BACKGROUND_COLOR,
@@ -398,7 +397,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             33.0,
             738.0,
             anchor="nw",
-            text=self.peer["allowed_ips"] or "",
+            text=self.peer.allowed_ips or "",
             fill=TEXT_COLOR_ORANGE,
             font=(FONT, FONT_SIZE_TEXT_M),
         )
@@ -464,7 +463,7 @@ class PeerDetailsOverlay(tk.Toplevel):
 
     def edit_peer(self) -> None:
         try:
-            self.data.rename_peer(self.peer["id"], self.entry_name.get())
+            self.data.rename_peer(self.peer.id, self.entry_name.get())
             self.return_value = "rename"
             self.destroy()
         except Exception:
@@ -472,11 +471,11 @@ class PeerDetailsOverlay(tk.Toplevel):
 
     def pin_verify(self) -> None:
         # if name of peer was changed, we need other_names for pin_verify
-        if self.peer["other_names"]:
-            name = self.peer["other_names"]
+        if self.peer.other_names:
+            name = self.peer.other_names
         else:
-            name = self.peer["name"] or ""
-        self.data.pin_and_verify(self.peer["id"], name)
+            name = self.peer.name or ""
+        self.data.pin_and_verify(self.peer.id, name)
         self.return_value = "pin_and_verify"
         self.destroy()
 
@@ -485,7 +484,7 @@ class PeerDetailsOverlay(tk.Toplevel):
             return
 
         try:
-            self.data.add_peer(self.peer["id"], self.entry_additional_ip.get())
+            self.data.add_peer(self.peer.id, self.entry_additional_ip.get())
             self.entry_additional_ip.delete(0, "end")
             self.return_value = "additional_ip"
             self.destroy()

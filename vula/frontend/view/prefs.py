@@ -1,4 +1,3 @@
-import gettext
 import tkinter as tk
 from tkinter import (
     Button,
@@ -12,8 +11,9 @@ from tkinter import (
 )
 from tkinter.constants import W
 from typing import cast
+from dataclasses import asdict
 
-from vula.frontend import DataProvider, PrefsType
+from vula.frontend import DataProvider, Prefs as PrefsData
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
     BACKGROUND_COLOR_CARD,
@@ -30,18 +30,17 @@ from vula.frontend.constants import (
 )
 from vula.frontend.dataprovider import PrefsTypeKeys
 from vula.frontend.overlay import PopupMessage
-
-_ = gettext.gettext
+from builtins import _
 
 
 class Prefs(Frame):
-    data = DataProvider()
 
-    def __init__(self, frame: Frame) -> None:
+    def __init__(self, frame: Frame, data: DataProvider) -> None:
         self.show_editable: bool = False
-        self.prefs: PrefsType
+        self.prefs: PrefsData
         self.widgets: dict[str, Text | Button] = {}
         self.frame: Frame = frame
+        self.data = data
 
         self.display_header()
         self.display_frames()
@@ -216,16 +215,17 @@ class Prefs(Frame):
             event.widget.config(bg=TEXT_COLOR_RED)
 
     def save_prefs(self) -> None:
-        for pref, values in self.prefs.items():
+        prefs_dict = asdict(self.prefs)
+        for pref, values in prefs_dict.items():
             _pref: PrefsTypeKeys = cast(PrefsTypeKeys, pref)
             widget_type = self.widgets[pref]
             if isinstance(widget_type, Text):
                 widget = widget_type
-                if type(values) == list:
+                if isinstance(values, list):
                     current_list = widget.get("1.0", "end").split()
                     for value in current_list:
                         if isinstance(value, list):
-                            if value not in self.prefs[_pref]:
+                            if value not in prefs_dict[_pref]:
                                 res = self.data.add_pref(pref, value)
                                 if self.show_error(res) == 1:
                                     return
@@ -236,13 +236,13 @@ class Prefs(Frame):
                                 return
 
                 # boolean based prefs
-                elif type(values) == bool:
+                elif isinstance(values, bool):
                     bool_value = str(self.widgets[pref]["text"])
                     res = self.data.set_pref(pref, bool_value)
                     if self.show_error(res) == 1:
                         return
                 # int based prefs
-                elif type(values) == int:
+                elif isinstance(values, int):
                     int_value = str(widget[pref].get("1.0", "end"))
                     res = self.data.set_pref(pref, int_value)
                     if self.show_error(res) == 1:
@@ -310,7 +310,8 @@ class Prefs(Frame):
         counter: int = 1
 
         # Loop over all preferences and display them
-        for pref, value in self.prefs.items():
+        prefs_dict = asdict(self.prefs)
+        for pref, value in prefs_dict.items():
             # show preference descriptions on the left
             pref_label = Label(
                 self.pref_content_frame,
@@ -324,7 +325,7 @@ class Prefs(Frame):
             pref_label.grid(row=counter, column=0, padx=2, pady=2, sticky="nw")
 
             # list based preferences
-            if type(value) == list:
+            if isinstance(value, list):
                 if self.show_editable:
                     value_text = Text(
                         self.pref_content_frame,
@@ -371,7 +372,7 @@ class Prefs(Frame):
                         counter += 1
 
             # bool based preferences (as string)
-            elif type(value) == bool:
+            elif isinstance(value, bool):
                 if str(value) == "True":
                     color = TEXT_COLOR_GREEN
                     font_color = TEXT_COLOR_GREEN
@@ -418,7 +419,7 @@ class Prefs(Frame):
                 counter += 1
 
             # int based preference
-            elif type(value) == int:
+            elif isinstance(value, int):
                 if self.show_editable:
                     value_text = Text(
                         self.pref_content_frame,

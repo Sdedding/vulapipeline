@@ -1,9 +1,8 @@
-import gettext
 import math
 from tkinter import Button, Canvas, Frame, Label, PhotoImage
 from typing import List
 
-from vula.frontend import DataProvider, PeerType
+from vula.frontend import DataProvider, Peer
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
     BACKGROUND_COLOR_CARD,
@@ -23,11 +22,8 @@ from vula.frontend.constants import (
 )
 from vula.frontend.overlay import PeerDetailsOverlay, PopupMessage
 
-_ = gettext.gettext
-
 
 class Peers(Frame):
-    data = DataProvider()
 
     peer_frames: List[Frame] = []
 
@@ -40,9 +36,10 @@ class Peers(Frame):
     peer_page = 1
     peers_per_page = 5
 
-    def __init__(self, parent: Frame) -> None:
+    def __init__(self, parent: Frame, data: DataProvider) -> None:
         Frame.__init__(self, parent)
         self.app = parent
+        self.data = data
 
         self.display_header()
         self.display_peers()
@@ -187,10 +184,10 @@ class Peers(Frame):
                 canvas, 0, 0, 400, 70, r=30, fill=BACKGROUND_COLOR_CARD
             )
 
-            if peer["name"]:
-                name = peer["name"]
+            if peer.name:
+                name = peer.name
             else:
-                name = peer["other_names"] or ""
+                name = peer.other_names or ""
 
             # Peer name
             canvas.create_text(
@@ -207,14 +204,14 @@ class Peers(Frame):
                 20.0,
                 40.0,
                 anchor="nw",
-                text=peer["endpoint"] or "",
+                text=peer.endpoint or "",
                 fill=TEXT_COLOR_GREY,
                 font=(FONT, FONT_SIZE_TEXT_XS),
             )
 
             # Status labels
-            if peer["status"] is not None:
-                if "enabled" in peer["status"]:
+            if peer.status is not None:
+                if "enabled" in peer.status:
                     canvas.create_text(
                         205.0,
                         40.0,
@@ -223,7 +220,7 @@ class Peers(Frame):
                         fill=TEXT_COLOR_YELLOW,
                         font=(FONT, FONT_SIZE_TEXT_M),
                     )
-                if "unpinned" not in peer["status"]:
+                if "unpinned" not in peer.status:
                     canvas.create_text(
                         270.0,
                         40.0,
@@ -232,7 +229,7 @@ class Peers(Frame):
                         fill=TEXT_COLOR_PURPLE,
                         font=(FONT, FONT_SIZE_TEXT_M),
                     )
-                if "unverified" not in peer["status"]:
+                if "unverified" not in peer.status:
                     canvas.create_text(
                         325.0,
                         40.0,
@@ -247,8 +244,8 @@ class Peers(Frame):
             self.peer_frames.append(peer_frame)
             counter += 1
 
-    def open_details(self, peer: PeerType) -> None:
-        popup = PeerDetailsOverlay(self.app, peer)
+    def open_details(self, peer: Peer) -> None:
+        popup = PeerDetailsOverlay(self.app, peer, self.data)
         result = popup.show()
         if result == "delete":
             self.num_peers_after_remove = self.num_peers - 1

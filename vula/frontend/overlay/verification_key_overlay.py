@@ -1,4 +1,3 @@
-import gettext
 import json
 import tkinter as tk
 
@@ -16,15 +15,12 @@ from vula.frontend.constants import (
 from vula.peer import Descriptor
 from .popupMessage import PopupMessage
 
-_ = gettext.gettext
-
 
 class VerificationKeyOverlay(tk.Toplevel):
-    data = DataProvider()
-
-    def __init__(self, parent: tk.Tk) -> None:
+    def __init__(self, parent: tk.Tk, data: DataProvider) -> None:
         tk.Toplevel.__init__(self, parent)
         self.root = parent
+        self.data = data
 
         self.wm_transient(self.root)
 
