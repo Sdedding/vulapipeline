@@ -60,7 +60,8 @@ def main() -> None:  # noqa: 901
                 )
 
                 self.systemd_bus = self.system_bus.get(".systemd1")
-                self.menu_items_snapshot = []
+                initial_items = self._get_menu_items()
+                self.icon = Icon("Vula", image, menu=Menu(*initial_items))
             except GLib.Error:
                 print("Vula is not running.")
                 sys.exit(3)
@@ -238,18 +239,24 @@ def main() -> None:  # noqa: 901
                         snapshot.extend(subitem.text for subitem in item.submenu.items)
                 return snapshot
 
+            last_snapshot = []
+
             while True:
                 try:
+                    # Generate new menu
                     new_menu_items = self._get_menu_items()
                     new_snapshot = get_menu_snapshot(new_menu_items)
-                    old_snapshot = get_menu_snapshot(self.menu_items) if self.menu_items else []
 
-                    if new_snapshot != old_snapshot:
-                        self.menu_items = new_menu_items
-                        self.icon.menu = Menu(*self.menu_items)
+                    # Compare with last snapshot
+                    if new_snapshot != last_snapshot:
+                        print("[Tray] Menu changed, updating.")
+                        last_snapshot = new_snapshot
+                        self.icon.menu = Menu(*new_menu_items)
                         self.icon.update_menu()
+                    else:
+                        print("[Tray] No menu changes.")
                 except Exception as e:
-                    print(f"[Tray Debug] Menu update failed: {e}")
+                    print(f"[Tray Error] Failed to update menu: {e}")
 
                 sleep(_TRAY_UPDATE_INTERVAL)
 
