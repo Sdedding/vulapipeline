@@ -57,6 +57,8 @@ def main() -> None:  # noqa: 901
                 self.organize_dbus = self.system_bus.get(
                     _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
                 )
+                self.peersStatus = []
+                self.serviceStatus = []
                 self.systemd_bus = self.system_bus.get(".systemd1")
             except GLib.Error:
                 print("Vula is not running.")
