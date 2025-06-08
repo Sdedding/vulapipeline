@@ -61,7 +61,7 @@ def main() -> None:  # noqa: 901
 
                 self.systemd_bus = self.system_bus.get(".systemd1")
                 initial_items = self._get_menu_items()
-                self.icon = Icon("Vula", image, menu=Menu(*initial_items))
+                self.icon = Icon("Vula", _get_icon(), menu=Menu(*initial_items))
             except GLib.Error:
                 print("Vula is not running.")
                 sys.exit(3)
