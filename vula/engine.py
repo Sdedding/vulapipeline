@@ -4,8 +4,16 @@ import copy
 import traceback
 from functools import reduce, wraps
 from threading import Lock
+from dataclasses import dataclass
 
 from schema import Optional, Schema, Use
+
+
+@dataclass
+class WriteOp:
+    kind: str
+    path: object
+    value: object
 
 from .common import raw, schemattrdict, yamlfile, yamlrepr_hl
 
@@ -134,6 +142,26 @@ class Engine(schemattrdict, yamlfile):
     def record(self, result):
         pass
 
+    def apply_writes(self):
+        for op in self.result.writes:
+            if isinstance(op, WriteOp):
+                kind, path, value = op.kind, op.path, op.value
+            else:
+                kind, path, value = op
+
+            if isinstance(path, str):
+                path = path.split('.')
+            if len(path) == 1:
+                target = self.next_state
+                key = path[0]
+            else:
+                target = reduce(lambda a, b: a[b], path[:-1], self.next_state)
+                key = path[-1]
+
+            getattr(type(self), '_' + kind).__wrapped__(
+                self, target, key, raw(value)
+            )
+
     @staticmethod
     def event(method):
         """
@@ -159,6 +187,8 @@ class Engine(schemattrdict, yamlfile):
                 self.result = res
                 # run event method on a copy of our state
                 method(self, *a, **kw)
+                # apply writes after event handlers
+                self.apply_writes()
                 # confirm event produced a new valid state
                 new_state = self.schema.validate(self.next_state)
                 if raw(new_state) == raw(self):
@@ -232,18 +262,8 @@ class Engine(schemattrdict, yamlfile):
 
         @wraps(method)
         def _method(self, path, value):
-            self.result.writes.append((name, path, value))
-
-            if type(path) is str:
-                path = path.split('.')
-            if len(path) == 1:
-                target = self.next_state
-                key = path[0]
-            else:
-                target = reduce(lambda a, b: a[b], path[:-1], self.next_state)
-                key = path[-1]
-
-            method(self, target, key, raw(value))
+            self.result.writes.append(WriteOp(name, path, value))
+            return None
 
         return _method
 

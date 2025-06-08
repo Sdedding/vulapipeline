@@ -11,12 +11,14 @@ from __future__ import annotations
 import os
 import pdb
 import time
+from datetime import timedelta
 from functools import lru_cache
 from ipaddress import ip_address, ip_network
 from logging import Logger, getLogger
 from pathlib import Path
 from platform import node
 from typing import Any
+import json
 
 import click
 import pydbus
@@ -552,6 +554,10 @@ class Organize(attrdict):
           <arg type='s' name='query' direction='in'/>
           <arg type='s' name='response' direction='out'/>
         </method>
+        <method name='get_peer_info'>
+          <arg type='s' name='query' direction='in'/>
+          <arg type='s' name='response' direction='out'/>
+        </method>
         <method name='peer_descriptor'>
           <arg type='s' name='query' direction='in'/>
           <arg type='s' name='response' direction='out'/>
@@ -1046,6 +1052,44 @@ class Organize(attrdict):
             if peer
             else "No peer matched query %r" % (query,)
         )
+
+    @DualUse.method(opts=(click.argument('query', type=str),))
+    def get_peer_info(self, query):
+        """Return peer information as JSON."""
+        peer = self.peers.query(query)
+        if not peer:
+            return "{}"
+        stats = self.sys.get_stats().get(str(peer.descriptor.pk))
+
+        def ago(ts: int) -> str:
+            return str(timedelta(seconds=int(time.time() - ts))) + " ago"
+
+        info = {
+            "name": peer.name,
+            "id": peer.id,
+            "other_names": ", ".join(peer.other_names),
+            "status": " ".join(
+                filter(
+                    None,
+                    [
+                        "enabled" if peer.enabled else "disabled",
+                        "pinned" if peer.pinned else "unpinned",
+                        "verified" if peer.verified else "unverified",
+                        "gateway" if peer.use_as_gateway else "",
+                    ],
+                )
+            ),
+            "endpoint": peer.endpoint,
+            "allowed_ips": ", ".join(peer._wg_allowed_ips),
+            "latest_signature": ago(peer.descriptor.vf),
+            "latest_handshake": (
+                ago(stats["latest_handshake"])
+                if stats and stats.get("latest_handshake")
+                else "none"
+            ),
+            "wg_pubkey": str(peer.descriptor.pk),
+        }
+        return json.dumps(info)
 
     @DualUse.method(opts=(click.argument('query', type=str),))
     def peer_descriptor(self, query):
