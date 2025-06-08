@@ -48,6 +48,8 @@ def main() -> None:  # noqa: 901
         icon: Icon
         organize_bus: Any
         systemd_bus: Any
+        menu_items: Any
+        menu_items_snapshot:Any
 
 
         def __init__(self):
@@ -58,8 +60,7 @@ def main() -> None:  # noqa: 901
                 )
 
                 self.systemd_bus = self.system_bus.get(".systemd1")
-                self.peersStatus = []
-                self.serviceStatus = []
+                self.menu_items_snapshot = []
             except GLib.Error:
                 print("Vula is not running.")
                 sys.exit(3)
@@ -100,7 +101,7 @@ def main() -> None:  # noqa: 901
                 menu_items.append(
                     MenuItem("%s: %s" % (service, status), None, enabled=False)
                 )
-            self.save_services(menu_items)
+
             return menu_items
 
         def _get_peer_menu_item(self) -> MenuItem:
@@ -147,7 +148,7 @@ def main() -> None:  # noqa: 901
                 Menu(*peer_menu_items) if number_of_peers > 0 else None,
                 enabled=number_of_peers > 0,
             )
-            self.save_peers(peer_menu_items)
+
             return peer_menu_item
 
         def _rediscover(self):
@@ -220,22 +221,24 @@ def main() -> None:  # noqa: 901
             7
             """
 
-            self.menu_items = [
+            return [
                 *self._get_status_menu_items(),
                 self._get_peer_menu_item(),
                 self._get_actions_menu_item(),
                 self._get_open_gui_menu_item(),
                 MenuItem("Quit", self._remove_tray_icon),
             ]
-            return self.menu_items
+            
 
         def _update_icon(self) -> NoReturn:
             """
             Updates the menu items in the system-tray icon.
             """
             while True:
-                if self.menu_items != self.get_menu_items():
+                if self.menu_items_snapshot != self._get_menu_items():
+                    self.menu_items_snapshot = self._get_menu_items()
                     self.icon.update_menu()
+                    
                 else:
                     sleep(_TRAY_UPDATE_INTERVAL)
 
