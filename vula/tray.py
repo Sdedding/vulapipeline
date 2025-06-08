@@ -48,8 +48,7 @@ def main() -> None:  # noqa: 901
         icon: Icon
         organize_bus: Any
         systemd_bus: Any
-        peersStatus: List[MenuItem]
-        serviceStatus: List[MenuItem]
+
 
         def __init__(self):
             try:
@@ -57,9 +56,10 @@ def main() -> None:  # noqa: 901
                 self.organize_dbus = self.system_bus.get(
                     _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
                 )
+
+                self.systemd_bus = self.system_bus.get(".systemd1")
                 self.peersStatus = []
                 self.serviceStatus = []
-                self.systemd_bus = self.system_bus.get(".systemd1")
             except GLib.Error:
                 print("Vula is not running.")
                 sys.exit(3)
@@ -219,20 +219,22 @@ def main() -> None:  # noqa: 901
             >>> len(items)
             7
             """
-            return [
+
+            self.menu_items = [
                 *self._get_status_menu_items(),
                 self._get_peer_menu_item(),
                 self._get_actions_menu_item(),
                 self._get_open_gui_menu_item(),
                 MenuItem("Quit", self._remove_tray_icon),
             ]
+            return self.menu_items
 
         def _update_icon(self) -> NoReturn:
             """
             Updates the menu items in the system-tray icon.
             """
             while True:
-                if self.check_peers_change(self._get_peer_menu_item()) or self.check_services_change(self._get_status_menu_items()):
+                if self.menu_items != self.get_menu_items():
                     self.icon.update_menu()
                 else:
                     sleep(_TRAY_UPDATE_INTERVAL)
@@ -267,30 +269,12 @@ def main() -> None:  # noqa: 901
 
             icon.run(self._setup_icon)
 
-        def save_peers(self, peers_status) -> None:
-            if self.peersStatus == peers_status:
-                return
-            else:
-                self.peersStatus = peers_status
-
-        def save_services(self, services_status) -> None:
-            if self.peersStatus == services_status:
-                return
-            else:
-                self.peersStatus = services_status
 
 
-        def check_peers_change(self, peers_status) -> bool:
-            if self.peersStatus == peers_status:
-                return False
-            else:
-                return True
 
-        def check_services_change(self, services_status) -> bool:
-            if self.peersStatus == services_status:
-                return False
-            else:
-                return True
+
+
+
 
 
     tray: Tray = Tray()
