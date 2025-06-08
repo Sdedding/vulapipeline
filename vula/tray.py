@@ -48,6 +48,8 @@ def main() -> None:  # noqa: 901
         icon: Icon
         organize_bus: Any
         systemd_bus: Any
+        peersStatus: List[MenuItem]
+        serviceStatus: List[MenuItem]
 
         def __init__(self):
             try:
@@ -96,7 +98,7 @@ def main() -> None:  # noqa: 901
                 menu_items.append(
                     MenuItem("%s: %s" % (service, status), None, enabled=False)
                 )
-
+            self.save_services(menu_items)
             return menu_items
 
         def _get_peer_menu_item(self) -> MenuItem:
@@ -143,7 +145,7 @@ def main() -> None:  # noqa: 901
                 Menu(*peer_menu_items) if number_of_peers > 0 else None,
                 enabled=number_of_peers > 0,
             )
-
+            self.save_peers(peer_menu_items)
             return peer_menu_item
 
         def _rediscover(self):
@@ -228,8 +230,10 @@ def main() -> None:  # noqa: 901
             Updates the menu items in the system-tray icon.
             """
             while True:
-                self.icon.update_menu()
-                sleep(_TRAY_UPDATE_INTERVAL)
+                if self.check_peers_change(self._get_peer_menu_item()) or self.check_services_change(self._get_status_menu_items()):
+                    self.icon.update_menu()
+                else:
+                    sleep(_TRAY_UPDATE_INTERVAL)
 
         def _setup_icon(self, icon: Icon) -> None:
             """
@@ -260,6 +264,32 @@ def main() -> None:  # noqa: 901
             )
 
             icon.run(self._setup_icon)
+
+        def save_peers(self, peers_status) -> None:
+            if self.peersStatus == peers_status:
+                return
+            else:
+                self.peersStatus = peers_status
+
+        def save_services(self, services_status) -> None:
+            if self.peersStatus == services_status:
+                return
+            else:
+                self.peersStatus = services_status
+
+
+        def check_peers_change(self, peers_status) -> bool:
+            if self.peersStatus == peers_status:
+                return False
+            else:
+                return True
+
+        def check_services_change(self, services_status) -> bool:
+            if self.peersStatus == services_status:
+                return False
+            else:
+                return True
+
 
     tray: Tray = Tray()
     tray.show()
