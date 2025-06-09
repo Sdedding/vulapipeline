@@ -182,14 +182,24 @@ target being run, so, in practice you might want to prefix it with `clean`. To
 go back to using a package-installed image, use `make clean dpkg-image` or `make
 clean rpm-image`.
 
+## GUI container
+
+Run `make gui` to launch a container with an XFCE desktop environment.
+The GUI image is created from the editable Vula image, so the first run
+will implicitly build that image if needed. The container starts
+`systemd` so D‑Bus services are available and then launches the desktop
+via `start-gui.sh`. The container exposes a noVNC server on port `6080`.
+After the command completes, open `http://localhost:6080/vnc.html` in
+your web browser to access the GUI.
+
 ## Cleaning up
 
 ### `make clean`
 
 This will delete the `.deb` package built in `../deb_dist`, the `vula-$dist`
-podman images, the test containers, and any stray intermediate containers. It
-will *not* delete the `vula-deps-$dist` images, which require network access to
-recreate.
+and `vula-gui-$dist` podman images, the test containers, and any stray
+intermediate containers. It will *not* delete the `vula-deps-$dist` images,
+which require network access to recreate.
 
 ### `make clean-all`
 
