@@ -33,5 +33,5 @@ class PopupMessage:
 
         popupLabel.pack()
         popupRoot.geometry('400x50+400+525')
-        popupRoot.mainloop()
+        popupRoot.grab_set()
         return

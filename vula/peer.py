@@ -51,7 +51,14 @@ from .notclick import (
     yellow,
 )
 
-_qrcode = None
+from functools import lru_cache
+
+
+@lru_cache(maxsize=1)
+def _get_qrcode():
+    import qrcode
+
+    return qrcode
 
 
 @DualUse.object()
@@ -314,11 +321,9 @@ class Descriptor(schemattrdict, serializable):
 
         It returns a string.
         """
-        global _qrcode
-        if _qrcode is None:
-            import qrcode as _qrcode
+        qrcode = _get_qrcode()
         sio = StringIO()
-        qr = _qrcode.QRCode()
+        qr = qrcode.QRCode()
         qr.add_data(data="local.vula:desc:" + str(self))
         qr.print_ascii(out=sio)
         sio.seek(0)
@@ -375,9 +380,7 @@ class Peer(schemattrdict):
         return self.get('petname') or (
             latest
             if self.nicknames[self.descriptor.hostname]
-            else self.enabled_names[0]
-            if self.enabled_names
-            else "<unnamed>"
+            else self.enabled_names[0] if self.enabled_names else "<unnamed>"
         )
 
     @property

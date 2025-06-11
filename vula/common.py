@@ -459,9 +459,11 @@ class ConsistencyError(Exception):
 
 
 class comma_separated_IPs(object):
-    addr_cls: Callable[[Any, Any], IPv4Address | IPv6Address] | type[
-        IPv4Address
-    ] | type[IPv6Address] = lambda _, a: ip_address(a)
+    addr_cls: (
+        Callable[[Any, Any], IPv4Address | IPv6Address]
+        | type[IPv4Address]
+        | type[IPv6Address]
+    ) = lambda _, a: ip_address(a)
     size: Optional[int] = None
 
     def __init__(self, arg):

@@ -48,9 +48,11 @@ def main(only_systemd, verbose):
         status = (
             (lambda x: x)
             if status == 'none'
-            else green
-            if status in ('active',)
-            else (yellow if status in ('inactive', 'activatable') else red)
+            else (
+                green
+                if status in ('active',)
+                else (yellow if status in ('inactive', 'activatable') else red)
+            )
         )("{:^8}".format(status))
         click.echo("[{}] {}".format(status, service))
 
