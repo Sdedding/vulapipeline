@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 from typing import Literal
 
-from vula.frontend import DataProvider, Peer
+from vula.frontend import Controller, Peer
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
     BACKGROUND_COLOR_ENTRY,
@@ -18,11 +18,12 @@ from vula.frontend.constants import (
 
 from .popupMessage import PopupMessage
 from builtins import _
+from ..style import configure_styles
 
 
 class PeerDetailsOverlay(tk.Toplevel):
     def __init__(
-        self, parent: tk.Frame, peer: Peer, data: DataProvider
+        self, parent: tk.Frame, peer: Peer, data: Controller
     ) -> None:
         tk.Toplevel.__init__(self, parent)
         self.app = parent
@@ -63,10 +64,13 @@ class PeerDetailsOverlay(tk.Toplevel):
             relief="ridge",
         )
 
+        self.style = configure_styles()
+
         self.yscrollbar = ttk.Scrollbar(
             self.top_frame,
             orient="vertical",
             command=self.top_canvas.yview,
+            style="Vula.Vertical.TScrollbar",
         )
 
         frame = tk.Frame(
@@ -109,6 +113,7 @@ class PeerDetailsOverlay(tk.Toplevel):
 
         self.top_frame.columnconfigure(0, weight=1)
 
+        self.label = tk.Label(frame, text="test")
 
         # Title
         self.canvas.create_text(
@@ -456,7 +461,11 @@ class PeerDetailsOverlay(tk.Toplevel):
         )
 
         if box:
-            self.data.delete_peer(peer_id)
+            if not self.data.delete_peer(peer_id):
+                messagebox.showerror(
+                    _("Error"), _("Cannot remove a pinned peer"), parent=self
+                )
+                return
             self.return_value = "delete"
             self.destroy()
 

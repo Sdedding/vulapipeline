@@ -276,8 +276,28 @@ gui: gui-image
 	--detach $(add_caps) \
 	vula-gui-$(dist) \
 	$(systemd_path)
-	podman exec --detach vula-$(dist)-gui /usr/local/bin/start-gui.sh
-	@echo "Open http://localhost:6080/vnc.html in a browser to use the GUI"
+	        podman exec --detach vula-$(dist)-gui /usr/local/bin/start-gui.sh
+	        @echo "Open http://localhost:6080/vnc.html in a browser to use the GUI"
+
+.PHONY: gui-test
+
+gui-test: gui-image start
+	-podman stop vula-$(dist)-gui-test
+	-podman rm   vula-$(dist)-gui-test
+	podman run $(podman_args) --network $(NET_NAME) \
+	--publish 6080:6080 \
+	--name vula-$(dist)-gui-test \
+	--hostname $(dist)-gui-test \
+	--detach $(add_caps) \
+	vula-gui-$(dist) \
+	$(systemd_path)
+	podman exec --detach vula-$(dist)-gui-test /usr/local/bin/start-gui.sh
+	@echo "GUI test running at http://localhost:6080/vnc.html"
+
+.PHONY: gui-test-clean
+gui-test-clean:
+	@-podman stop vula-$(dist)-gui-test 2>&1 | grep -v 'no container with name or ID'
+	@-podman rm   vula-$(dist)-gui-test 2>&1 | grep -v 'no container with name or ID'
 
 .PHONY: .create-network
 .create-network:

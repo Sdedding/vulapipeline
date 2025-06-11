@@ -44,6 +44,7 @@ from .dataprovider import (
     StatusType,
     get_provider,
 )
+from .controller import Controller
 
 # Install UI translations once when the frontend package is imported.
 locale_path = pkg_resources.resource_filename('vula', 'locale')

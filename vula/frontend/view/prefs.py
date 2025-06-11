@@ -6,14 +6,14 @@ from tkinter import (
     Frame,
     Label,
     PhotoImage,
-    Scrollbar,
     Text,
+    ttk,
 )
 from tkinter.constants import W
 from typing import cast
 from dataclasses import asdict
 
-from vula.frontend import DataProvider, Prefs as PrefsData
+from vula.frontend import Controller, Prefs as PrefsData
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
     BACKGROUND_COLOR_CARD,
@@ -28,6 +28,7 @@ from vula.frontend.constants import (
     TEXT_COLOR_RED,
     TEXT_COLOR_WHITE,
 )
+from ..style import configure_styles
 from vula.frontend.dataprovider import PrefsTypeKeys
 from vula.frontend.overlay import PopupMessage
 from builtins import _
@@ -35,7 +36,7 @@ from builtins import _
 
 class Prefs(Frame):
 
-    def __init__(self, frame: Frame, data: DataProvider) -> None:
+    def __init__(self, frame: Frame, data: Controller) -> None:
         self.show_editable: bool = False
         self.prefs: PrefsData
         self.widgets: dict[str, Text | Button] = {}
@@ -82,11 +83,12 @@ class Prefs(Frame):
             highlightthickness=1,
         )
 
-        self.yscrollbar = Scrollbar(
+        self.style = configure_styles()
+        self.yscrollbar = ttk.Scrollbar(
             self.top_frame,
             orient="vertical",
             command=self.pref_canvas.yview,
-            relief="flat",
+            style="Vula.Vertical.TScrollbar",
         )
         self.pref_content_frame = Frame(
             self.pref_canvas,
@@ -188,7 +190,7 @@ class Prefs(Frame):
             fill=TEXT_COLOR_HEADER_2,
             font=(FONT, FONT_SIZE_HEADER_2),
         )
-        self.title_frame.grid(row=0, column=0, pady=(10, 0), sticky="w")
+        self.title_frame.pack(pady=(10, 0), anchor="w")
 
     def get_prefs(self) -> None:
         self.prefs = self.data.get_prefs()

@@ -106,12 +106,19 @@ class DataProvider:
     def get_prefs(self) -> Prefs:
         return prefs_from_dict(self.backend.get_prefs())
 
+    def get_peer(self, peer_id: str) -> Optional[Peer]:
+        """Return a single peer by id or ``None`` if unavailable."""
+        info = self.backend.get_peer_info(peer_id)
+        return peer_from_dict(info) if info else None
+
     def get_status(self) -> Optional[StatusType]:
         # Fetch the data from the systemd dbus
         if not self.backend.connect(service=False):
             return None
         bus = self.backend.bus
-        systemd = bus.get(".systemd1", "/")
+        # Explicitly retrieve the systemd manager object to avoid interface
+        # resolution issues when calling methods such as ``GetUnit``.
+        systemd = bus.get(".systemd1", "/org/freedesktop/systemd1")
 
         # Create an empty dict for the status
         status = StatusType(publish="", discover="", organize="")
@@ -122,9 +129,7 @@ class DataProvider:
             # Template string for service name
             unit_name = "vula-%s.service" % (name,)
             try:
-                unit = bus.get(
-                    ".systemd1", systemd.GetUnit(unit_name)
-                )
+                unit = bus.get(".systemd1", systemd.GetUnit(unit_name))
                 status[name] = unit.ActiveState
             except Exception as ex:
                 self.log.error("Failed to get unit %s: %s", unit_name, ex)
@@ -157,12 +162,8 @@ class DataProvider:
         self.backend.remove_pref(pref, value)
 
 
-_provider: Optional[DataProvider] = None
-
-
 def get_provider() -> DataProvider:
     """Return a singleton instance of :class:`DataProvider`."""
-    global _provider
-    if _provider is None:
-        _provider = DataProvider()
-    return _provider
+    if not hasattr(get_provider, "_instance"):
+        get_provider._instance = DataProvider()  # type: ignore[attr-defined]
+    return get_provider._instance  # type: ignore[attr-defined]

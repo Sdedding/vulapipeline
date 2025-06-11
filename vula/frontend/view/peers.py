@@ -2,7 +2,7 @@ import math
 from tkinter import Button, Canvas, Frame, Label, PhotoImage
 from typing import List
 
-from vula.frontend import DataProvider, Peer
+from vula.frontend import Controller, Peer
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
     BACKGROUND_COLOR_CARD,
@@ -36,7 +36,7 @@ class Peers(Frame):
     peer_page = 1
     peers_per_page = 5
 
-    def __init__(self, parent: Frame, data: DataProvider) -> None:
+    def __init__(self, parent: Frame, data: Controller) -> None:
         Frame.__init__(self, parent)
         self.app = parent
         self.data = data

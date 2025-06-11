@@ -1,7 +1,7 @@
 import json
 import tkinter as tk
 
-from vula.frontend import DataProvider
+from vula.frontend import Controller
 from vula.frontend.components import QRCodeLabel
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
@@ -15,7 +15,7 @@ from vula.peer import Descriptor
 
 
 class DescriptorOverlay(tk.Toplevel):
-    def __init__(self, parent: tk.Tk, data: DataProvider) -> None:
+    def __init__(self, parent: tk.Tk, data: Controller) -> None:
         self.root = parent
         self.data = data
 
@@ -63,7 +63,7 @@ class DescriptorOverlay(tk.Toplevel):
         ).pack()
 
         my_descriptors = {
-            ip: Descriptor(d)
+            ip: Descriptor.parse(d)
             for ip, d in json.loads(self.data.our_latest_descriptors()).items()
         }
 

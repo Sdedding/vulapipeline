@@ -20,6 +20,19 @@ make
 Running `make` with no arguments will print this README and some configuration
 variables.
 
+## Quick start
+
+The most common targets are:
+
+* `make test` – builds the container image, creates two test containers on the
+  `vula-net` network and runs the automated tests.
+* `make gui` – launches a standalone desktop container with a noVNC server on
+  port `6080`.
+* `make gui-test` – starts the test network like `make test` and also runs the
+  GUI container on port `6081` connected to that network. Remove it with
+  `make gui-test-clean`.
+* `make sh i=2` – open a shell in test container number `2`.
+
 ## Distributions
 
 This Makefile accepts a `dist` argument specifying which Linux distribution to
@@ -191,6 +204,11 @@ will implicitly build that image if needed. The container starts
 via `start-gui.sh`. The container exposes a noVNC server on port `6080`.
 After the command completes, open `http://localhost:6080/vnc.html` in
 your web browser to access the GUI.
+
+`make gui-test` spins up the same two test containers created by `make test`
+and additionally launches the GUI container on port `6081`.  This allows
+manual interaction with the GUI while the other containers run in the
+background.  Clean up with `make gui-test-clean` or `make testnet-clean`.
 
 ## Cleaning up
 
