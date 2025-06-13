@@ -1,13 +1,18 @@
 import json
 from unittest.mock import MagicMock, Mock, patch
 import sys
+
+from _pytest.capture import CaptureFixture
+
+from vula.prefs import Prefs
+from vula.verify import VerifyCommands
 from vula.peer import Descriptor
 import vula.verify
 from vula.common import yamlrepr
 
 
 class TestVerifyCommands:
-    def create_verify_commands(self):
+    def create_verify_commands(self) -> VerifyCommands:
         test_descriptors = {
             'eth0': str(
                 Descriptor(
@@ -50,9 +55,7 @@ class TestVerifyCommands:
         mockorganize.our_latest_descriptors.return_value = json.dumps(
             test_descriptors
         )
-        mockorganize.show_prefs.return_value = repr(
-            yamlrepr(vula.prefs.Prefs())
-        )
+        mockorganize.show_prefs.return_value = repr(yamlrepr(Prefs()))
         mockdbus.SystemBus.return_value.get.return_value = mockorganize
 
         mockclickctx = MagicMock()
@@ -60,16 +63,18 @@ class TestVerifyCommands:
 
         with patch("vula.verify.pydbus", mockdbus):
             # the __wrapped__ call gets rid of the click decorators.
-            verify = vula.verify.VerifyCommands.__wrapped__(mockclickctx)
+            verify: VerifyCommands = vula.verify.VerifyCommands.__wrapped__(mockclickctx)  # type: ignore[attr-defined]  # noqa: E501
 
         return verify
 
-    def test_init_loads_descriptors(self):
+    def test_init_loads_descriptors(self) -> None:
         verify = self.create_verify_commands()
         assert verify.vk is not None
         assert verify.my_descriptors is not None
 
-    def test_my_vk(self, monkeypatch, capsys):
+    def test_my_vk(
+        self, monkeypatch: MagicMock, capsys: CaptureFixture[str]
+    ) -> None:
         monkeypatch.setattr(sys.stdout, 'isatty', lambda: True)
         verify = self.create_verify_commands()
         verify.my_vk()
@@ -79,7 +84,9 @@ class TestVerifyCommands:
         assert 'X' * 86 + '=' not in output
         assert 'Z' * 86 + '=' not in output
 
-    def test_my_descriptor(self, monkeypatch, capsys):
+    def test_my_descriptor(
+        self, monkeypatch: MagicMock, capsys: CaptureFixture[str]
+    ) -> None:
         monkeypatch.setattr(sys.stdout, 'isatty', lambda: True)
         verify = self.create_verify_commands()
         verify.my_descriptor()

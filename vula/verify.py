@@ -20,30 +20,13 @@ import sys
 from base64 import b64decode
 import click
 from typing import Any, List, Optional, Tuple
-from types import ModuleType
 import pydbus
 import yaml
 from click import Context
 from click.exceptions import Exit
 from gi.repository import GLib
 
-try:
-    cv2: Optional[ModuleType]
-    import cv2
-except ImportError:
-    cv2 = None
-
-try:
-    zbar: Optional[ModuleType]
-    from pyzbar.pyzbar import decode
-except ImportError:
-    zbar = None
-
-try:
-    qrcode: Optional[ModuleType]
-    import qrcode
-except ImportError:
-    qrcode = None
+from vula.utils import optional_import
 
 from .common import escape_ansi
 from .constants import _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
@@ -52,6 +35,11 @@ from .notclick import DualUse, bold, green, red
 from .peer import Descriptor
 from .verify_audio import VerifyAudio
 from .verify_reunion import reunion_multicast_run_verify
+
+cv2 = optional_import("cv2")
+zbar = optional_import("zbar")
+decode = optional_import("pyzbar.pyzbar.decode")
+qrcode = optional_import("qrcode")
 
 
 @DualUse.object(
@@ -96,18 +84,40 @@ class VerifyCommands(object):
         return peer_vk_b64, peer_vk_hashed
 
     @DualUse.method()
-    def my_vk(self):
+    def my_vk(self) -> None:
         "Display QR code of your identity key"
         click.echo(green(bold("Your VK is: ")) + str(self.vk))
+
+        if qrcode is None:
+            click.echo(
+                red(
+                    bold(
+                        "Unable to generate QR code, "
+                        "the qrcode package is not installed."
+                    )
+                )
+            )
+            return
         qr = qrcode.QRCode()
         qr.add_data(data="local.vula:vk:" + str(self.vk))
         qr.print_tty()
 
     @DualUse.method()
-    def my_descriptor(self):
+    def my_descriptor(self) -> None:
         "Display text and QR code of your descriptor(s)"
         for ip, desc in self.my_descriptors.items():
             click.echo(green(bold("Descriptor for {}: ".format(ip))))
+
+            if qrcode is None:
+                click.echo(
+                    red(
+                        bold(
+                            "Unable to generate QR code, "
+                            "the qrcode package is not installed."
+                        )
+                    )
+                )
+                continue
             qr = qrcode.QRCode()
             qr.add_data(data="local.vula:desc:" + str(desc))
             qr.print_tty()
@@ -121,7 +131,9 @@ class VerifyCommands(object):
         '-d', '--debug', default=False, is_flag=True, show_default=True
     )
     @click.argument('hostname', type=str, required=True)
-    def scan(self, width, height, camera, hostname, debug):
+    def scan(
+        self, width: int, height: int, camera: int, hostname: str, debug: bool
+    ) -> None:
         """
         Scan a QR code
 
@@ -135,9 +147,20 @@ class VerifyCommands(object):
         The first part of the string is conformant to RFC 1738, Section 2.1.
         which describes "The main parts of URLs".
         """
-        res = None
         done = False
         data = None
+
+        if cv2 is None:
+            click.echo(
+                red(
+                    bold(
+                        "Unable to scan QR code, "
+                        "the OpenCV package is not installed."
+                    )
+                )
+            )
+            raise Exit(1)
+
         v = cv2.VideoCapture(camera, cv2.CAP_V4L)
         v.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         v.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
@@ -197,7 +220,7 @@ class VerifyCommands(object):
     @click.option(
         '-v', '--verbose', default=False, is_flag=True, show_default=True
     )
-    def speak(self, verbose):
+    def speak(self, verbose: bool) -> None:
         "Play audio for other peer to listen to"
         vk = str(self.vk)
         if verbose:
@@ -216,7 +239,7 @@ class VerifyCommands(object):
         show_default=True,
         type=bool,
     )
-    def listen(self, hostname: str, verbose: bool):
+    def listen(self, hostname: str, verbose: bool) -> None:
         "Listen for audio from other peer"
         try:
             known_vk = self.organize.get_vk_by_name(hostname)
@@ -261,7 +284,7 @@ class VerifyCommands(object):
                     print("keys are for the wrong DeLorean")
                 raise Exit(1)
 
-    @DualUse.method()  # type: ignore
+    @DualUse.method()
     @click.argument("hostname", required=True, type=str)
     @click.option(
         "--multicast-group",

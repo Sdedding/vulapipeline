@@ -167,6 +167,17 @@ Clean everything up
 * Checkout 'Comments and known bugs' in [mitm readme](./Vula-MitM-tool.md)
 
 
+## Type checking
+
+You can run the type checking tools inside a podman container with the following commands:
+```bash
+# mypy --strict (source of truth)
+make mypy
+
+# pyright (for cross verification, has remaining issues)
+make pyright
+```
+
 ## Development mode
 
 The `test-*` make targets have the side effect of creating a podman image

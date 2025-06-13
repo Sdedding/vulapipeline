@@ -11,7 +11,7 @@ from vula.frontend.constants import (
 
 class PopupMessage:
     @staticmethod
-    def showPopupMessage(title: str, text):
+    def showPopupMessage(title: str, text: str) -> None:
         popupRoot = tk.Toplevel()
         popupRoot.title(title)
         if title == "Error":

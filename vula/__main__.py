@@ -32,6 +32,7 @@ from .constants import (
 )
 from .frontend import ui
 from .notclick import Debuggable
+from typing import Any, Optional
 
 
 @click.version_option()
@@ -59,7 +60,13 @@ from .notclick import Debuggable
 )
 @click.group(cls=Debuggable, scope=globals(), invoke_without_command=True)
 @click.pass_context
-def main(ctx, log_level, *args, **kwargs):
+def main(
+    ctx: click.Context,
+    log_level: Optional[int] = None,
+    /,
+    *args: Any,
+    **kwargs: Any,
+) -> None:
     """
     vula tools
 
@@ -84,10 +91,10 @@ def main(ctx, log_level, *args, **kwargs):
     is_flag=True,
     help="Only wait for services, not configuration",
 )
-def start(quick):
+def start(quick: bool) -> None:
     "Activate organize daemon via dbus, and report its status"
     bus = pydbus.SystemBus()
-    if bus.dbus.NameHasOwner(_ORGANIZE_DBUS_NAME):
+    if bus.dbus.NameHasOwner(_ORGANIZE_DBUS_NAME):  # type: ignore[attr-defined]  # noqa: E501
         click.echo("start: vula d-bus service is already active")
     else:
         click.echo('start: activating vula organize service via dbus')
@@ -101,7 +108,7 @@ def start(quick):
 
 
 @main.command()
-def stop():
+def stop() -> Any:
     """Stop vula
 
     This is a shortcut for systemctl stop vula.slice
@@ -115,7 +122,7 @@ def stop():
 
 
 @main.command(short_help="Starts the graphical user interface")
-def gui():
+def gui() -> None:
     ui.main()
 
 
@@ -126,7 +133,7 @@ def gui():
     is_flag=True,
     help="Print what would be done, without doing it",
 )
-def repair(dry_run):
+def repair(dry_run: bool) -> None:
     """
     This checks if the system is configured correctly, and (re)configures it if
     it isn't.
@@ -137,7 +144,7 @@ def repair(dry_run):
 
 
 @main.command()
-def rediscover():
+def rediscover() -> None:
     """
     Tell organize to ask discover for more peers.
     """
@@ -146,7 +153,7 @@ def rediscover():
 
 
 @main.command()
-def release_gateway():
+def release_gateway() -> None:
     """
     Stop using vula for the default route.
 

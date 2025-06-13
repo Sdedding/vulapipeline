@@ -6,9 +6,11 @@ from nacl.signing import SigningKey
 import vula.wg
 from vula.common import attrdict
 
+from typing import Dict, Any
+
 
 class TestInterface:
-    def test_sync_interface(self):
+    def test_sync_interface(self) -> None:
         """
         Try to sync a non existing interface when dryrun is set to True.
         """
@@ -25,7 +27,7 @@ class TestInterface:
         ]
 
         assert expected_result == non_existent_interface.sync_interface(
-            key, 9999, "foo", True
+            str(key), 9999, "foo", True
         )
 
         """
@@ -42,7 +44,7 @@ class TestInterface:
 
         query_mock = Mock()
         query_mock.return_value = True
-        non_existent_interface.query = query_mock
+        non_existent_interface.query = query_mock  # type: ignore[method-assign]  # noqa: E501
 
         expected_result = [
             '# create interface',
@@ -55,7 +57,7 @@ class TestInterface:
         ]
 
         assert expected_result == non_existent_interface.sync_interface(
-            key, 9999, "bar", False
+            str(key), 9999, "bar", False
         )
         ipr_mock.link.assert_has_calls(
             [
@@ -65,7 +67,7 @@ class TestInterface:
         )
         ipr_mock.get_links.assert_called_with(ifname='foo')
 
-    def test_interface_query(self):
+    def test_interface_query(self) -> None:
         """
         Ensure that a call to query() clears previously stored data
         """
@@ -197,7 +199,7 @@ class TestInterface:
         }
         assert interface.query() == expected_result2
 
-    def test_peers_by_pubkey(self):
+    def test_peers_by_pubkey(self) -> None:
         interface = vula.wg.Interface("vula")
         interface.update(popluated_interface())
 
@@ -220,7 +222,7 @@ class TestInterface:
         }
         assert interface._peers_by_pubkey == expected_result
 
-    def test_apply_peerconfig(self):
+    def test_apply_peerconfig(self) -> None:
         """
         Prepare a populated Interface with a mocked Wireguard property.
         """
@@ -304,7 +306,7 @@ class TestInterface:
         )
 
 
-def popluated_interface():
+def popluated_interface() -> Dict[str, Any]:
     return {
         'listen_port': 5354,
         'fwmark': 555,
@@ -334,7 +336,7 @@ def popluated_interface():
 
 # Use this simulated wireguard response to populate a vula interface with one
 # peer with a public_key of: "hDzSznlwlq9mk07QpNk+AcsfprrLg2DxSv3JAOLXhFQ="
-def mock_wg_info_return():
+def mock_wg_info_return() -> tuple[Dict[str, Any], ...]:
     return (
         {
             'cmd': 0,

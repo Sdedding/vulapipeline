@@ -1,7 +1,7 @@
 import gettext
 import math
 from tkinter import Button, Canvas, Frame, Label, PhotoImage
-from typing import List
+from typing import List, Any
 
 from vula.frontend import DataProvider, PeerType
 from vula.frontend.constants import (
@@ -298,8 +298,8 @@ class Peers(Frame):
         y: int,
         w: int,
         h: int,
-        r=25,
-        **kwargs,
+        r: int = 25,
+        **kwargs: Any,
     ) -> None:
         xr = x + r
         yr = y + r

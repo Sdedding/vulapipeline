@@ -12,6 +12,7 @@
 from ipaddress import IPv4Address, IPv6Address
 from logging import Logger, getLogger
 from platform import node as hostname
+from typing import Any
 
 import click
 import pydbus
@@ -92,7 +93,7 @@ class Publish(object):
                     )
 
     @classmethod
-    def daemon(cls):
+    def daemon(cls) -> None:
         """
         This method implements the non-monolithic daemon mode where we run
         publish in its own process (as we deploy on GNU/systemd).
@@ -102,11 +103,11 @@ class Publish(object):
         publish.log.debug("Debug level logging enabled")
         pydbus.SystemBus().publish(_PUBLISH_DBUS_NAME, publish)
         publish.log.debug("dbus enabled")
-        loop.run()
+        loop.run()  # type: ignore[no-untyped-call]
 
 
 @click.command(short_help="Layer 3 mDNS publish daemon")
-def main(**kwargs):
+def main(**kwargs: Any) -> None:
     Publish.daemon(**kwargs)
 
 

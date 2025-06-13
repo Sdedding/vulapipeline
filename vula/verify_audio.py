@@ -1,22 +1,14 @@
 import hashlib
 import os
 import sys
-from typing import Optional
+from typing import cast
 
 import click
-from types import ModuleType
 
-ggwave: Optional[ModuleType]
-try:
-    import ggwave  # type: ignore[no-redef]
-except ImportError:
-    ggwave = None
+from vula.utils import optional_import
 
-pyaudio: Optional[ModuleType]
-try:
-    import pyaudio  # type: ignore[no-redef]
-except ImportError:
-    pyaudio = None
+ggwave = optional_import("ggwave")
+pyaudio = optional_import("pyaudio")
 
 _GGWAVE_VOLUME: int = (
     100  # Full ggwave volume, use the os controls for adjustments
@@ -24,17 +16,18 @@ _GGWAVE_VOLUME: int = (
 
 
 class VerifyAudio:
-    def __init__(self, verbose):
+    def __init__(self, verbose: bool):
         self.verbose = verbose
-        self.null_fds = None
-        self.store_fds = None
+        self.null_fds: list[int]
+        self.store_fds: list[int]
 
         if not self.verbose:
             self.__mute()
 
         try:
+            assert pyaudio is not None
             self.py_audio = pyaudio.PyAudio()
-        except AttributeError:
+        except AssertionError:
             click.echo("pyaudio error")
             sys.exit(4)
 
@@ -42,12 +35,13 @@ class VerifyAudio:
             self.__unmute()
 
         try:
+            assert ggwave is not None
             self.ggwave_instance = ggwave.init()
-        except AttributeError:
+        except AssertionError:
             click.echo("ggwave error")
             sys.exit(5)
 
-    def send_verification_key(self, vk):
+    def send_verification_key(self, vk: str) -> None:
         if self.verbose:
             click.echo(
                 "Speaking hash: "
@@ -55,40 +49,43 @@ class VerifyAudio:
             )
 
         try:
+            assert ggwave is not None
             waveform = ggwave.encode(
                 hashlib.sha256(vk.encode('utf-8')).hexdigest(),
                 protocolId=1,
                 volume=_GGWAVE_VOLUME,
             )
-        except AttributeError:
+        except AssertionError:
             click.echo("ggwave error")
             sys.exit(5)
+        if pyaudio is not None:
+            stream = self.py_audio.open(
+                format=pyaudio.paFloat32,
+                channels=1,
+                rate=48000,
+                output=True,
+                frames_per_buffer=4096,
+            )
+            try:
+                stream.write(waveform, len(waveform) // 4)
+                stream.stop_stream()
+            except SystemError as e:
+                click.echo(f"pyaudio error: {e}")
+                sys.exit(5)
+            finally:
+                stream.close()
+                self.py_audio.terminate()
 
-        stream = self.py_audio.open(
-            format=pyaudio.paFloat32,
-            channels=1,
-            rate=48000,
-            output=True,
-            frames_per_buffer=4096,
-        )
-        try:
-            stream.write(waveform, len(waveform) // 4)
-            stream.stop_stream()
-        except SystemError as e:
-            click.echo(f"pyaudio error: {e}")
-            sys.exit(5)
-        finally:
-            stream.close()
-            self.py_audio.terminate()
-
-    def receive_verification_key(self):
-        stream = self.py_audio.open(
-            format=pyaudio.paFloat32,
-            channels=1,
-            rate=48000,
-            input=True,
-            frames_per_buffer=1024,
-        )
+    def receive_verification_key(self) -> str | None:
+        if pyaudio is not None:
+            stream = self.py_audio.open(
+                format=pyaudio.paFloat32,
+                channels=1,
+                rate=48000,
+                input=True,
+                frames_per_buffer=1024,
+            )
+        assert ggwave is not None
         try:
             count = 0
             while True:
@@ -102,7 +99,7 @@ class VerifyAudio:
                     self.__unmute()
                 if res is not None:
                     try:
-                        return res.decode("utf-8")
+                        return cast(str, res.decode("utf-8"))
                     except ValueError:
                         return None
 
@@ -113,10 +110,9 @@ class VerifyAudio:
             stream.stop_stream()
             stream.close()
             self.py_audio.terminate()
+            return None
 
-        return None
-
-    def __mute(self):
+    def __mute(self) -> None:
         # Open a pair of null files
         self.null_fds = [os.open(os.devnull, os.O_RDWR) for x in range(2)]
 
@@ -127,7 +123,7 @@ class VerifyAudio:
         os.dup2(self.null_fds[0], 1)
         os.dup2(self.null_fds[1], 2)
 
-    def __unmute(self):
+    def __unmute(self) -> None:
         # Reverse redirect
         os.dup2(self.store_fds[0], 1)
         os.dup2(self.store_fds[1], 2)

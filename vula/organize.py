@@ -12,16 +12,24 @@ import os
 import pdb
 import time
 from functools import lru_cache
-from ipaddress import ip_address, ip_network
+from ipaddress import (
+    ip_address,
+    ip_network,
+    IPv6Address,
+    IPv4Address,
+    IPv4Network,
+    IPv6Network,
+)
 from logging import Logger, getLogger
 from pathlib import Path
 from platform import node
-from typing import Any
+from typing import Any, Self, Optional, Never, cast, Sequence, Callable
 
 import click
 import pydbus
 from click import Context
 from gi.repository import GLib
+from pydbus.method_call_context import MethodCallContext
 from schema import And
 from schema import Optional as Optional_
 from schema import Schema, Use
@@ -68,7 +76,7 @@ from .notclick import DualUse
 from .peer import Descriptor, PeerCommands, Peers, Peer
 from .prefs import Prefs, PrefsCommands
 from .publish import Publish
-from .sys import Sys
+from .sys_routes import Sys
 
 
 class SystemState(schemattrdict):
@@ -98,7 +106,7 @@ class SystemState(schemattrdict):
     )
 
     @classmethod
-    def read(cls, organize):
+    def read(cls, organize: Organize) -> Self:
         (
             subnets,
             interfaces,
@@ -114,7 +122,7 @@ class SystemState(schemattrdict):
         )
 
     @property
-    def current_ips(self):
+    def current_ips(self) -> list[IPv6Address | IPv4Address]:
         """
         Currently assigned IP addresses of the system.
 
@@ -138,7 +146,9 @@ class SystemState(schemattrdict):
         ]
 
     @property
-    def current_subnets_no_ULA(self):
+    def current_subnets_no_ULA(
+        self,
+    ) -> dict[IPv4Network | IPv6Network, IPv4Address | IPv6Address]:
         return {
             k: v
             for k, v in self.current_subnets.items()
@@ -163,20 +173,20 @@ class OrganizeState(Engine, yamlrepr_hl):
         )
     )
 
-    default = dict(
+    default: dict[str, Any] = dict(
         prefs=Prefs.default, system_state={}, peers={}, event_log=[]
     )
 
-    def _check_freshness(self, descriptor):
+    def _check_freshness(self, descriptor: Descriptor) -> bool:
         # FIXME: check dt and vf here
         return True
 
-    def record(self, res):
+    def record(self, res: Result) -> None:
         if self.prefs.record_events:
             self.event_log.append(raw(res))
 
     @Engine.event
-    def event_VERIFY_AND_PIN_PEER(self, vk, hostname):
+    def event_VERIFY_AND_PIN_PEER(self, vk: str, hostname: str) -> None:
         _id = self.peers.with_hostname(hostname).id
         if vk == _id:
             self.action_EDIT('SET', ['peers', vk, 'verified'], True)
@@ -185,7 +195,7 @@ class OrganizeState(Engine, yamlrepr_hl):
             raise Exception(f"Expected {hostname}: expected: {vk} have: {_id}")
 
     @Engine.event
-    def event_USER_REMOVE_PEER(self, query):
+    def event_USER_REMOVE_PEER(self, query: str) -> None:
         peer = self.peers.query(query)
         if peer:
             self.action_REMOVE_PEER(peer)
@@ -193,7 +203,7 @@ class OrganizeState(Engine, yamlrepr_hl):
             self.action_IGNORE("no such peer")
 
     @Engine.event
-    def event_USER_PEER_ADDR_ADD(self, vk, ip):
+    def event_USER_PEER_ADDR_ADD(self, vk: str, ip: str) -> None:
         "user added IP address"
         peer = self.peers.get(vk)
         if peer:
@@ -202,14 +212,15 @@ class OrganizeState(Engine, yamlrepr_hl):
             self.action_IGNORE("no such peer")
 
     @Engine.action
-    def action_PEER_ADDR_ADD(self, peer, vk, ip):
+    def action_PEER_ADDR_ADD(self, peer: Peer, vk: str, ip: str) -> None:
         "added IP address"
         ipa = ip_address(ip)
         self._SET(('peers', vk, 'IPv%saddrs' % (ipa.version,), ip), True)
+        assert self.result is not None
         self.result.add_triggers(sync_peer=(peer.id,))
 
     @Engine.event
-    def event_USER_PEER_ADDR_DEL(self, vk, ip):
+    def event_USER_PEER_ADDR_DEL(self, vk: str, ip: str) -> None:
         "user removed IP address"
         peer = self.peers.get(vk)
         if peer:
@@ -218,37 +229,45 @@ class OrganizeState(Engine, yamlrepr_hl):
             self.action_IGNORE("no such peer")
 
     @Engine.action
-    def action_PEER_ADDR_DEL(self, peer, vk, ip):
+    def action_PEER_ADDR_DEL(self, peer: Peer, vk: str, ip: str) -> None:
         "removed IP address"
         ipa = ip_address(ip)
         self._REMOVE(('peers', vk, 'IPv%saddrs' % (ipa.version,)), ip)
+        assert self.result is not None
         self.result.add_triggers(sync_peer=(peer.id,))
         self.result.add_triggers(
             remove_routes=(ip + ('/32' if ipa.version == 4 else '/128'),)
         )
 
     @Engine.event
-    def event_USER_EDIT(self, operation, path, value):
+    def event_USER_EDIT(
+        self, operation: str, path: Sequence[str], value: Any
+    ) -> None:
         self.action_EDIT(operation, path, value)
 
     @Engine.event
-    def event_RELEASE_GATEWAY(self):
+    def event_RELEASE_GATEWAY(self) -> None:
         cur_gw = list(self.peers.limit(use_as_gateway=True).values())
         if cur_gw:
             self.action_EDIT(
                 'SET', ['peers', cur_gw[0].id, 'use_as_gateway'], False
             )
+            assert self.result is not None
             self.result.add_triggers(get_new_system_state=())
         else:
             self.action_IGNORE("no current gateway peer")
 
     @Engine.action
-    def action_EDIT(self, operation, path, value):
+    def action_EDIT(
+        self, operation: str, path: Sequence[str], value: Any
+    ) -> None:
         getattr(self, '_' + operation)(path, value)
+        assert self.result is not None
         if path[0] == 'peers':
             # bug: this doesn't work for the REMOVE operation where there is no
             # path[1] but the peer remove command calls event_USER_REMOVE_PEER
             # so that is ok for now
+            assert self.next_state is not None
             self._update_peer(Peer(self.next_state['peers'][path[1]]))
         elif path[0] == 'prefs':
             self.result.add_triggers(get_new_system_state=())
@@ -258,13 +277,19 @@ class OrganizeState(Engine, yamlrepr_hl):
         self.result.add_triggers(remove_unknown=())
 
     @Engine.event
-    def event_NEW_SYSTEM_STATE(self, new_system_state):
+    def event_NEW_SYSTEM_STATE(self, new_system_state: SystemState) -> None:
         self.action_ADJUST_TO_NEW_SYSTEM_STATE(new_system_state)
 
     @Engine.action
-    def action_ADJUST_TO_NEW_SYSTEM_STATE(self, new_system_state):
-        cur_gw = list(self.peers.limit(use_as_gateway=True).values())
-        cur_gw = cur_gw and cur_gw[0]
+    def action_ADJUST_TO_NEW_SYSTEM_STATE(
+        self, new_system_state: SystemState
+    ) -> None:
+        gateways: list[Peer] = list(
+            self.peers.limit(use_as_gateway=True).values()
+        )
+        cur_gw: Optional[Peer] = gateways[0] if gateways else None
+        assert self.result is not None
+
         if (
             cur_gw
             and (not cur_gw.pinned)
@@ -298,15 +323,14 @@ class OrganizeState(Engine, yamlrepr_hl):
         # remove endpoints from pinned peers that became non-local
 
     @Engine.event
-    def event_INCOMING_DESCRIPTOR(self, descriptor):
+    def event_INCOMING_DESCRIPTOR(self, descriptor: Descriptor) -> Any:
         """
         Here we validate an incoming descriptor and decide if we will accept
         it.
         """
         if descriptor.p not in _IPv6_ULA:
-            return self.action_IGNORE(
-                descriptor, "primary IP is not in ULA subnet"
-            )
+            self.action_IGNORE(descriptor, "primary IP is not in ULA subnet")
+            return None
 
         if str(descriptor.pk) == str(self.system_state.our_wg_pk):
             return self.action_IGNORE(descriptor, "has our wg pk")
@@ -352,7 +376,7 @@ class OrganizeState(Engine, yamlrepr_hl):
             self.action_ACCEPT_NEW_PEER(descriptor)
 
     @Engine.action
-    def action_ACCEPT_NEW_PEER(self, descriptor):
+    def action_ACCEPT_NEW_PEER(self, descriptor: Descriptor) -> None:
         peer = descriptor.make_peer(
             pinned=(
                 False
@@ -364,11 +388,18 @@ class OrganizeState(Engine, yamlrepr_hl):
         self._update_peer(peer)
 
     @Engine.action
-    def action_UPDATE_PEER_DESCRIPTOR(self, peer, desc):
+    def action_UPDATE_PEER_DESCRIPTOR(
+        self, peer: Peer, desc: Descriptor
+    ) -> None:
         self._SET(('peers', peer.id, 'descriptor'), desc)
         self._update_peer(peer, desc)
 
-    def _update_peer(self, peer, desc=None, system_state=None):
+    def _update_peer(
+        self,
+        peer: Peer,
+        desc: Optional[Descriptor] = None,
+        system_state: Optional[SystemState] = None,
+    ) -> Any:
         """
         This is called for each peer by action_ADJUST_TO_NEW_SYSTEM_STATE to
         adjust each peer to the new state, including removing peers which no
@@ -434,11 +465,13 @@ class OrganizeState(Engine, yamlrepr_hl):
             # called).
             self._SET(('peers', peer.id, 'use_as_gateway'), True)
 
+        assert self.result is not None
         self.result.add_triggers(sync_peer=(peer.id,))
 
     @Engine.action
-    def action_REMOVE_PEER(self, peer):
+    def action_REMOVE_PEER(self, peer: Peer) -> None:
         self._REMOVE('peers', peer.id)
+        assert self.result is not None
         self.result.add_triggers(
             remove_wg_peer=(str(peer.wg_pk),),
             remove_routes=(tuple(map(str, peer.routes)),),
@@ -451,16 +484,18 @@ class OrganizeState(Engine, yamlrepr_hl):
             # sync (aka full repair) on system state change
 
     @Engine.action
-    def action_REJECT(self, descriptor, reason):
+    def action_REJECT(
+        self, descriptor: Descriptor, reason: str | tuple[str, Peer]
+    ) -> None:
         pass
 
     @Engine.action
-    def action_IGNORE(self, *a):
+    def action_IGNORE(self, *a: Any) -> None:
         # same as reject, different for logging
         pass
 
     @Engine.action
-    def action_LOG(self, message, *args):
+    def action_LOG(self, message: str, *args: Any) -> None:
         pass  # the decorator actually does the logging
 
 
@@ -518,7 +553,7 @@ class OrganizeState(Engine, yamlrepr_hl):
     show_default=True,
     help="path to base directory for organize state",
 )
-@click.pass_context
+@click.pass_context  # type: ignore[arg-type]
 class Organize(attrdict):
     """
     vula's organize daemon processes events such as new descriptors or system
@@ -636,11 +671,12 @@ class Organize(attrdict):
         self.log: Logger = getLogger()
         self.log.debug("Debug level logging enabled")
         self._configure = Configure(keys_conf_file=self.keys_file)
-        self._ctidh_dh = None
+        self._ctidh_dh: Optional[Callable[[bytes], bytes]] = None
         self._keys = self._configure.generate_or_read_keys()
-        self.sys = Sys(self)
+        sys = Sys(self)
+        self.sys: Sys = sys
         self._state: OrganizeState = self._load_state()
-        self._state.trigger_target = self.sys
+        self._state.trigger_target = sys
         self._state.save = self.save
         self._state.info_log = self.log.info
         self._state.debug_log = self.log.debug
@@ -649,19 +685,20 @@ class Organize(attrdict):
         if ctx.invoked_subcommand is None:
             self.run(monolithic=False)
 
-    def ctidh_dh(self, pk):
+    def ctidh_dh(self, pk: bytes) -> str:
         if self._ctidh_dh is None:
             self.log.debug("Initializing CTIDH")
             _ctidh = ctidh(ctidh_parameters)
             sk = bytes(self._keys.pq_ctidhP512_sec_key)
 
             @lru_cache(maxsize=_LRU_CACHE_MAX_SIZE)
-            def _ctidh_dh(pk: bytes):
+            def _ctidh_dh(pk: bytes) -> bytes:
                 self.log.debug(f"Generating CTIDH PSK for pk {pk!r}")
-                return _ctidh.dh(
+                result = _ctidh.dh(
                     _ctidh.private_key_from_bytes(sk),
                     _ctidh.public_key_from_bytes(pk),
                 )
+                return cast(bytes, result)
 
             self._ctidh_dh = _ctidh_dh
         raw_key = self._ctidh_dh(bytes(pk))
@@ -672,27 +709,27 @@ class Organize(attrdict):
         return psk
 
     @property
-    def v6_enabled(self):
+    def v6_enabled(self) -> bool:
         """
         This returns True if ipv6 is enabled in the preferences AND the system
         has at least one IPv6 address bound to any interface (including ::1 on
         lo).
         """
-        return self.state.system_state.has_v6 and self.prefs.enable_ipv6
+        return bool(self.state.system_state.has_v6 and self.prefs.enable_ipv6)
 
     @property
-    def v4_enabled(self):
-        return self.prefs.enable_ipv4
+    def v4_enabled(self) -> bool:
+        return bool(self.prefs.enable_ipv4)
 
     @property
-    def our_wg_pk(self):
+    def our_wg_pk(self) -> str:
         return str(self._keys.wg_Curve25519_pub_key)
 
-    def our_latest_descriptors(self):
+    def our_latest_descriptors(self) -> str:
         return repr(jsonrepr(self._current_descriptors))
 
     @property
-    def hostname(self):
+    def hostname(self) -> str:
         """
         Return our hostname.
 
@@ -701,7 +738,7 @@ class Organize(attrdict):
         return node() + _DOMAIN
 
     def _construct_service_descriptor(
-        self, ip_addrs: str, vf: int
+        self, ip_addrs: list[IPv4Address | IPv6Address], vf: int
     ) -> Descriptor:
         self.log.info("Constructing service descriptor id: %s", vf)
         # XXX add Curve448 pk for hybrid DH
@@ -728,8 +765,7 @@ class Organize(attrdict):
         ).sign(self._keys.vk_Ed25519_sec_key)
 
     @DualUse.method()
-    def get_new_system_state(self, reason=""):
-        res = []
+    def get_new_system_state(self, reason: str = "") -> list[Never] | Result:
         old_state = self.state.system_state.copy()
         new_system_state = SystemState.read(self)
         if reason:
@@ -743,18 +779,19 @@ class Organize(attrdict):
                 f"checked system state{reason}; found changes,"
                 " running sync/repair"
             )  # ignore: E702, E231
-            res = self.state.event_NEW_SYSTEM_STATE(new_system_state)
-            if res.error:
+            result = self.state.event_NEW_SYSTEM_STATE(new_system_state)
+            if result is None or result.error:
                 raise Exception(
-                    "Fatal unable to handle new system state: %r" % (res,)
+                    "Fatal unable to handle new system state: %r" % (result,)
                 )
             # FIXME: ensure that triggers do everything necessary, and then
             # remove this full repair sync call here:
             self.sync()
             self._instruct_zeroconf()
-        return res
+            return result
+        return []
 
-    def _load_state(self):
+    def _load_state(self) -> OrganizeState:
         """
         Deserializes the state object from disk and returns it.
         """
@@ -783,16 +820,16 @@ class Organize(attrdict):
         return state
 
     @property
-    def state(self):
+    def state(self) -> OrganizeState:
         return self._state
 
     @property
-    def peers(self):
-        return self._state.peers
+    def peers(self) -> Peers:
+        return cast(Peers, self.state.peers)
 
     @property
-    def prefs(self):
-        return self._state.prefs
+    def prefs(self) -> Prefs:
+        return cast(Prefs, self.state.prefs)
 
     @DualUse.method()
     def _write_hosts_file(self) -> bool:
@@ -834,7 +871,7 @@ class Organize(attrdict):
         return True
 
     @DualUse.method()
-    def save(self):
+    def save(self) -> None:
         """
         Save state to disk. (Should be no-op if run from the commandline in a
         new organize instance.)
@@ -844,7 +881,7 @@ class Organize(attrdict):
         self._write_hosts_file()
 
     @DualUse.method()
-    def verify_and_pin_peer(self, vk, hostname):
+    def verify_and_pin_peer(self, vk: str, hostname: str) -> str:
         return str(
             yamlrepr(raw(self.state.event_VERIFY_AND_PIN_PEER(vk, hostname)))
         )
@@ -855,11 +892,16 @@ class Organize(attrdict):
             click.option('-v', '--verbose', is_flag=True),
         )
     )
-    def sync(self, dryrun=False, verbose=False, firstrun=False):
+    def sync(
+        self,
+        dryrun: bool = False,
+        verbose: bool = False,
+        firstrun: bool = False,
+    ) -> list[str]:
         """
         Sync system to the desired organized state.
         """
-        res = []
+        res: list[str] = []
         res += self.sys.sync_interfaces(dryrun=dryrun)
         res += self.sys.sync_iprules(dryrun=dryrun)
         for peer in self.peers.values():
@@ -885,20 +927,23 @@ class Organize(attrdict):
         return res
 
     @DualUse.method()
-    def rediscover(self):
+    def rediscover(self) -> str:
         self.discover.listen([], self.our_wg_pk)
         self._instruct_zeroconf()
         return ",".join(map(str, self.state.system_state.current_ips))
 
     @DualUse.method()
-    def release_gateway(self):
+    def release_gateway(self) -> str:
         """
         Release the current gateway.
         """
-        return str(yamlrepr(self.state.event_RELEASE_GATEWAY()))
+
+        result = self.state.event_RELEASE_GATEWAY()
+        assert result is not None
+        return str(yamlrepr(result))
 
     @DualUse.method()
-    def bp(self):
+    def bp(self) -> None:
         """
         Call pdb.set_trace().
         """
@@ -913,7 +958,7 @@ class Organize(attrdict):
         is_flag=True,
         help="Run in monolithic mode without dbus (experimental/unsupported)",
     )
-    def run(self, monolithic, no_dbus=False):
+    def run(self, monolithic: bool, no_dbus: bool = False) -> None:
         """
         Run GLib main loop (default if no command specified).
         """
@@ -978,7 +1023,7 @@ class Organize(attrdict):
             for net in (_IPv6_LL, _IPv6_ULA):
                 if net not in self.prefs.subnets_allowed:
                     self.state.event_USER_EDIT(
-                        'ADD', ('prefs', 'subnets_allowed'), net
+                        'ADD', ['prefs', 'subnets_allowed'], net
                     )
 
         self.sys.start_monitor()
@@ -987,7 +1032,7 @@ class Organize(attrdict):
 
         if not no_dbus:
             self.log.info("calling GLib.MainLoop().run()")
-            main_loop.run()
+            main_loop.run()  # type: ignore[no-untyped-call]
 
     def _instruct_zeroconf(self) -> None:
         descriptors: dict[str, str] = {}
@@ -1036,7 +1081,7 @@ class Organize(attrdict):
         )
 
     @DualUse.method(opts=(click.argument('query', type=str),))
-    def show_peer(self, query):
+    def show_peer(self, query: str) -> str:
         """
         Returns peer description string from query for vk, hostname, or IP.
         """
@@ -1048,14 +1093,16 @@ class Organize(attrdict):
         )
 
     @DualUse.method(opts=(click.argument('query', type=str),))
-    def peer_descriptor(self, query):
+    def peer_descriptor(self, query: str) -> str:
         """
         Returns peer descriptor string from query for vk, hostname, or IP.
         """
         peer = self.peers.query(query)
         return str(peer.descriptor) if peer else ''
 
-    def process_descriptor_string(self: Organize, descriptor_string: str):
+    def process_descriptor_string(
+        self: Organize, descriptor_string: str
+    ) -> Optional[str]:
         self.log.debug("about to parse descriptor: %r", descriptor_string)
         try:
             descriptor = Descriptor.parse(descriptor_string)
@@ -1064,36 +1111,39 @@ class Organize(attrdict):
                 "organize failed to parse descriptor because %r (descriptor "
                 "was %r)" % (ex, descriptor_string)
             )
-            return
+            return None
 
         if descriptor is None:
             self.log.info(
                 "organize failed to parse descriptor (descriptor was %r)"
                 % (descriptor,)
             )
-            return
+            return None
 
         return self.process_descriptor(descriptor)
 
-    def process_descriptor(self: Organize, descriptor: Descriptor):
+    def process_descriptor(
+        self: Organize, descriptor: Descriptor
+    ) -> Optional[str]:
         if not descriptor.verify_signature():
             self.log.info(
                 "Discarded descriptor with invalid signature: %r"
                 % (descriptor,)
             )
-            return
+            return None
 
         res = self.state.event_INCOMING_DESCRIPTOR(descriptor)
+        assert res is not None
 
         # if res.writes:
         #    # this should happen with triggers in the event engine
         #    self.sync()
         return str(yamlrepr(res))
 
-    def get_vk_by_name(self, hostname):
-        return self.peers.with_hostname(hostname).id
+    def get_vk_by_name(self, hostname: str) -> str:
+        return str(self.peers.with_hostname(hostname).id)
 
-    def peer_ids(self, which):
+    def peer_ids(self, which: str) -> list[str]:
         peers = self.peers
         if which == 'disabled':
             peers = peers.limit(enabled=False)
@@ -1103,7 +1153,9 @@ class Organize(attrdict):
             assert which == 'all'
         return list(peers.keys())
 
-    def dump_state(self, interactive, dbus_context):
+    def dump_state(
+        self, interactive: bool, dbus_context: MethodCallContext
+    ) -> str:
         if dbus_context.is_authorized(
             'local.vula.organize1.Debug.dump_state',
             details={},
@@ -1113,7 +1165,9 @@ class Organize(attrdict):
         else:
             return "Forbidden"
 
-    def test_auth(self, interactive, dbus_context):
+    def test_auth(
+        self, interactive: bool, dbus_context: MethodCallContext
+    ) -> str:
         if dbus_context.is_authorized(
             'local.vula.organize1.Debug.test_auth',
             details={},
@@ -1123,42 +1177,45 @@ class Organize(attrdict):
         else:
             return "Forbidden"
 
-    def set_peer(self, vk, path, value):
-        res = self.state.event_USER_EDIT('SET', ['peers', vk] + path, value)
-        return str(jsonrepr(res))
+    def set_peer(self, vk: str, path: list[str], value: Any) -> str:
+        result = self.state.event_USER_EDIT('SET', ['peers', vk] + path, value)
+        return str(jsonrepr(result))
 
-    def remove_peer(self, query):
-        return str(yamlrepr(self.state.event_USER_REMOVE_PEER(query)))
+    def remove_peer(self, query: str) -> str:
+        result = self.state.event_USER_REMOVE_PEER(query)
+        return str(yamlrepr(result))
 
-    def peer_addr_add(self, vk, ip):
-        return str(yamlrepr(self.state.event_USER_PEER_ADDR_ADD(vk, ip)))
+    def peer_addr_add(self, vk: str, ip: str) -> str:
+        result = self.state.event_USER_PEER_ADDR_ADD(vk, ip)
+        return str(yamlrepr(result))
 
-    def peer_addr_del(self, vk, ip):
-        return str(yamlrepr(self.state.event_USER_PEER_ADDR_DEL(vk, ip)))
+    def peer_addr_del(self, vk: str, ip: str) -> str:
+        result = self.state.event_USER_PEER_ADDR_DEL(vk, ip)
+        return str(yamlrepr(result))
 
-    def get_prefs(self):
+    def get_prefs(self) -> str:
         return str(jsonrepr(self.state.prefs))
 
-    def show_prefs(self):
+    def show_prefs(self) -> str:
         return str(yamlrepr(self.state.prefs))
 
-    def set_pref(self, pref, value):
+    def set_pref(self, pref: str, value: Any) -> str:
         # this should call event_EDIT_PREF instead of event_USER_EDIT; this
         # as-yet unwritten event should call an action which should trigger
         # get_new_system_state to cause, eg, removal of allowed subnets
         # or interfaces to take effect immediately.
         return str(self.state.event_USER_EDIT('SET', ['prefs', pref], value))
 
-    def add_pref(self, pref, value):
+    def add_pref(self, pref: str, value: Any) -> str:
         return str(self.state.event_USER_EDIT('ADD', ['prefs', pref], value))
 
-    def remove_pref(self, pref, value):
+    def remove_pref(self, pref: str, value: Any) -> str:
         return str(
             self.state.event_USER_EDIT('REMOVE', ['prefs', pref], value)
         )
 
     @DualUse.method()
-    def eventlog(self):
+    def eventlog(self) -> str:
         return "\n".join(
             "{event}: {actions} {writes} {triggers}".format(
                 event=result.event[0],

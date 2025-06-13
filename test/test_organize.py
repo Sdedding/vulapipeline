@@ -5,7 +5,7 @@ import pytest
 
 from unittest.mock import MagicMock, patch
 from click.globals import push_context, pop_context
-from highctidh import ctidh  # type: ignore
+from highctidh import ctidh  # type: ignore[attr-defined, unused-ignore]
 
 from vula.csidh import ctidh_parameters
 from vula.organize import Organize

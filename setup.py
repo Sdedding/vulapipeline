@@ -161,7 +161,7 @@ if platform.startswith("openbsd"):
 
 
 class print_version(hookBuild_ext):
-    def run(self):
+    def run(self) -> None:
         print(version)
 
 

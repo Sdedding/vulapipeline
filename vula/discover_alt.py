@@ -5,7 +5,7 @@ import time
 import zlib
 from logging import Logger, getLogger
 from queue import Empty, Queue
-from typing import Optional
+from typing import Optional, Any
 
 import click
 import nacl.secret
@@ -55,12 +55,12 @@ class Discover_Alt:
         self.socket.settimeout(1)
         self.active = False
         self.peers_lock = threading.Lock()
-        self.peers: dict = {}
+        self.peers: dict[Any, Any] = {}
         self.sniffing_thread: threading.Thread
         self.packet_queue_lock = threading.Lock()
-        self.packet_queue: Queue = Queue()
+        self.packet_queue: Queue[tuple[bytes, tuple[str, int]]] = Queue()
         self.descriptor_queue_lock = threading.Lock()
-        self.descriptor_queue: Queue = Queue()
+        self.descriptor_queue: Queue[str] = Queue()
         self.bus = pydbus.SystemBus()
         self.organize = self.bus.get(_ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH)
 
@@ -275,7 +275,7 @@ class Discover_Alt:
         system_bus = pydbus.SystemBus()
         system_bus.publish(_DISCOVER_ALT_DBUS_NAME, discover)
 
-        loop.run()
+        loop.run()  # type: ignore[no-untyped-call]
 
 
 @click.command(short_help="Layer 2 alternate discovery daemon")

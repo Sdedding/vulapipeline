@@ -4,7 +4,7 @@
 
 from typing import ByteString
 
-from highctidh import ctidh  # type: ignore  # noqa: F401
+from highctidh import ctidh  # type: ignore[attr-defined, unused-ignore]
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
@@ -33,7 +33,7 @@ def hkdf(raw_key: ByteString) -> str:
         length=32,
         salt=None,
         info=b"vula-organize-1",
-    ).derive(raw_key)
+    ).derive(bytes(raw_key))
     psk = str(b64_bytes.with_len(32).validate(key))
     return psk
 
@@ -42,3 +42,9 @@ if __name__ == "__main__":
     import doctest
 
     doctest.testmod(verbose=True)
+
+__all__ = [
+    "ctidh",
+    "ctidh_parameters",
+    "hkdf",
+]

@@ -10,32 +10,53 @@ import os
 import pdb
 import re
 from base64 import b64decode, b64encode
-from ipaddress import ip_address, ip_network, IPv4Address, IPv6Address
+from ipaddress import (
+    ip_address,
+    ip_network,
+    IPv4Address,
+    IPv6Address,
+    IPv4Network,
+    IPv6Network,
+)
 from logging import Logger, getLogger
 from pathlib import Path
-import types
-from typing import Any, Dict, Optional, Callable
+from typing import (
+    Any,
+    Dict,
+    Optional,
+    Callable,
+    Self,
+    Iterator,
+    TypeVar,
+    Mapping,
+    Union,
+    cast,
+    TYPE_CHECKING,
+    Sequence,
+)
 
 import click
 import pydbus
 import yaml
 from schema import And, Or, Schema, SchemaError, Use
 
+from vula.utils import optional_import
 from .constants import _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
-from .notclick import DualUse, Exit  # noqa: F401
+from .notclick import DualUse  # noqa: F401
 
-pygments: Optional[types.ModuleType]
-
-try:
-    import pygments
-    from pygments import formatters, lexers  # noqa: F401
-except ImportError:
-    pygments = None
+pygments = optional_import("pygments")
+formatters = optional_import("pygments.formatters")  # noqa: F401
+lexers = optional_import("pygments.lexers")  # noqa: F401
 
 bp = pdb.set_trace
 
+if TYPE_CHECKING:
+    from vula.organize import Organize
 
-def chown_like_dir_if_root(path):
+__all__ = ['DualUse']
+
+
+def chown_like_dir_if_root(path: str) -> None:
     """
     This chowns a file to have the same owner as its parent, if we are running
     as root. Otherwise, it does nothing.
@@ -59,7 +80,7 @@ def _safer_load(
     schema: Schema,
     size_constraint_min: int = 0,
     size_constraint_max: int = 65000,
-) -> Optional[Dict]:
+) -> Optional[Dict[Any, Any]]:
     """
     *_safer_load* loads opens *yaml_file* and validates it based on a defined
     *schema* and ensures it is not smaller than *size_constraint_min* and not
@@ -99,7 +120,11 @@ def _safer_load(
     return validated_data
 
 
-class attrdict(dict):
+K = TypeVar('K')
+V = TypeVar('V', bound=Mapping[str, Any])
+
+
+class attrdict(dict[str, Any]):
     """
     This is a dictionary that provides attribute access to its keys.
 
@@ -107,12 +132,12 @@ class attrdict(dict):
     directly.
     """
 
-    def __getattr__(self, key):
+    def __getattr__(self, key: str) -> Any:
         """
         get value of key
 
-        >>> a = attrdict({1:2})
-        >>> a.__getattr__(1)
+        >>> a = attrdict({"1":2})
+        >>> a.__getattr__("1")
         2
 
         >>> a.__getattr__(2)
@@ -127,7 +152,7 @@ class attrdict(dict):
                 "%r object has no attribute %r" % (type(self).__name__, key)
             )
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key: str, value: Any) -> None:
         if key in self:
             raise ValueError(
                 "Programmer error: attempt to set an attribute (%s=%r) of an"
@@ -140,7 +165,7 @@ class attrdict(dict):
         super(attrdict, self).__setattr__(key, value)
 
 
-class ro_dict(dict):
+class ro_dict(dict[str, Any]):
     """
     This is a dictionary that is not easy to accidentally update.
 
@@ -169,7 +194,7 @@ class ro_dict(dict):
 
     """
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: Any) -> None:
         """
         This raises a ValueError exception when trying to set a key in an
         ro_dict.
@@ -192,7 +217,7 @@ class ro_dict(dict):
             "Attempt to set key %r in read-only dictionary" % (key,)
         )
 
-    def update(self, *a, **kw):
+    def update(self, *a: Any, **kw: Any) -> None:
         """
         This raises a ValueError exception when trying to change an ro_dict
         using the update() method.
@@ -218,7 +243,7 @@ class ro_dict(dict):
         )
 
 
-def raw(value):
+def raw(value: Any) -> Any:
     """
     This recursively coerces objects into something serializable.
 
@@ -257,28 +282,29 @@ def raw(value):
     if hasattr(value, '_dict'):
         return value._dict()
     if type(value) in (list, set, tuple):
-        new = list(raw(item) for item in value)
+        new_list = list(raw(item) for item in value)
         return (
             value
-            if type(value) is list and all(a is b for a, b in zip(new, value))
-            else new
+            if type(value) is list
+            and all(a is b for a, b in zip(new_list, value))
+            else new_list
         )
     if isinstance(value, dict):
-        new = {raw(k): raw(v) for k, v in value.items()}
+        new_dict = {raw(k): raw(v) for k, v in value.items()}
         return (
             value
             if type(value) is dict
             and all(
                 k is k_ and v is v_
-                for ((k, v), (k_, v_)) in zip(new.items(), value.items())
+                for ((k, v), (k_, v_)) in zip(new_dict.items(), value.items())
             )
-            else new
+            else new_dict
         )
     return str(value)
 
 
-class serializable(dict):
-    def _dict(self):
+class serializable(dict[str, Any]):
+    def _dict(self) -> dict[Any, Any]:
         """
         Return serializable as a dictionary.
 
@@ -293,27 +319,23 @@ class serializable(dict):
 
 class schemadict(ro_dict, serializable):
     schema = NotImplemented
-    # @TODO: Any maybe replaceable by a generic type, because data
-    # (which is derived from default) will be validated against
-    # the schema definition, but IDK the schema library and this
-    # could become a rather complex task
     default: Optional[dict[str, Any]] = None
 
-    def __init__(self, *a, **kw):
-        self._as_dict = None
+    def __init__(self, *a: Any, **kw: Any) -> None:
+        self._as_dict: Optional[dict[str, Any]] = None
         data = copy.deepcopy(self.default) or {}
         kw = {k: v for k, v in kw.items() if v is not None}
         data.update(*a, **kw)
         assert type(data) == dict
         super(schemadict, self).__init__(self.schema.validate(data))
 
-    def __deepcopy__(self, memo):
+    def __deepcopy__(self, memo: Any) -> Self:
         return type(self)(copy.deepcopy(dict(self)))
 
-    def copy(self):
+    def copy(self) -> Self:
         return self.__deepcopy__(None)
 
-    def _dict(self):
+    def _dict(self) -> dict[str, Any]:
         if self._as_dict is None:
             self._as_dict = super(schemadict, self)._dict()
         return self._as_dict
@@ -324,7 +346,9 @@ class schemattrdict(attrdict, schemadict):
 
 
 class yamlfile(serializable):
-    def write_yaml_file(self, path, mode=None, autochown=False):
+    def write_yaml_file(
+        self, path: str, mode: Optional[int] = None, autochown: bool = False
+    ) -> None:
         if mode:
             Path(path).touch(mode=mode)
 
@@ -338,7 +362,7 @@ class yamlfile(serializable):
             chown_like_dir_if_root(path)
 
     @classmethod
-    def from_yaml_file(cls, path):
+    def from_yaml_file(cls, path: str) -> Self:
         with click.open_file(path, mode='r', encoding='utf-8') as fh:
             return cls(yaml.safe_load(fh))
 
@@ -353,7 +377,7 @@ class yamlrepr(serializable):
     'a: b\nc: d\n'
     """
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Function to return a YAML representation of a Serializable in human-.
         readable format
@@ -364,12 +388,12 @@ class yamlrepr(serializable):
         return yaml.safe_dump(self._dict(), default_style='', sort_keys=False)
 
     @classmethod
-    def from_yaml(cls, yaml_str):
+    def from_yaml(cls, yaml_str: str) -> yamlrepr:
         return cls(yaml.safe_load(yaml_str))
 
 
 class jsonrepr_pp(serializable):
-    def __repr__(self):
+    def __repr__(self) -> str:
         r"""
         Function to return a JSON representation of a Serializable in human-
         readable format.
@@ -382,7 +406,7 @@ class jsonrepr_pp(serializable):
 
 
 class jsonrepr(serializable):
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Function to return a JSON representation of a Serializable.
         >>> mySerializable = serializable(("ab", "cd"))
@@ -405,7 +429,7 @@ class jsonrepr(serializable):
 
 
 class yamlrepr_hl(yamlrepr):
-    def __repr__(self):
+    def __repr__(self) -> str:
         if pygments is None:
             return super().__repr__()
         # aaa = list(
@@ -414,7 +438,7 @@ class yamlrepr_hl(yamlrepr):
         #    )
         # )
 
-        res = pygments.highlight(
+        res: str = pygments.highlight(
             yaml.safe_dump(self._dict(), default_style='', sort_keys=False),
             pygments.lexers.YamlLexer(),
             pygments.formatters.TerminalTrueColorFormatter(
@@ -426,7 +450,7 @@ class yamlrepr_hl(yamlrepr):
 
 
 class jsonrepr_hl(jsonrepr):
-    def __repr__(self):
+    def __repr__(self) -> str:
         r"""
         Function to return raw JSON-formatted content with syntax
         highlighting.
@@ -440,7 +464,7 @@ class jsonrepr_hl(jsonrepr):
         if pygments is None:
             return super().__repr__()
 
-        res = pygments.highlight(
+        res: str = pygments.highlight(
             json.dumps(self._dict(), indent=2),
             pygments.lexers.JsonLexer(),
             pygments.formatters.TerminalTrueColorFormatter(
@@ -458,13 +482,21 @@ class ConsistencyError(Exception):
     pass
 
 
+AddressInput = Union[str, bytes, IPv4Address, IPv6Address]
+AddressOutput = Union[IPv4Address, IPv6Address, IPv4Network, IPv6Network]
+
+
 class comma_separated_IPs(object):
-    addr_cls: Callable[[Any, Any], IPv4Address | IPv6Address] | type[
-        IPv4Address
-    ] | type[IPv6Address] = lambda _, a: ip_address(a)
+    addr_cls: Callable[
+        ..., IPv4Address | IPv6Address | IPv4Network | IPv6Network
+    ] | type[IPv4Address] | type[IPv6Address] | type[IPv4Network] | type[
+        IPv6Network
+    ] = lambda _, a: ip_address(
+        a
+    )
     size: Optional[int] = None
 
-    def __init__(self, arg):
+    def __init__(self, arg: Any) -> None:
         """
         Creates a list of IP addresses.
 
@@ -491,7 +523,7 @@ class comma_separated_IPs(object):
         <comma_separated_IPv6s('5765:2063:616e:2061:6c73:6f20:756e:7061,636b:2066:726f:6d20:6269:6e61:7279:2e20')>
         >>>
         """
-        self._str = None
+        self._str: Optional[str] = None
 
         if type(arg) is str:
             self._items = tuple(
@@ -513,7 +545,7 @@ class comma_separated_IPs(object):
             raise TypeError(f"{type(self)} can't instantiate from {type(arg)}")
 
     @property
-    def packed(self):
+    def packed(self) -> bytes:
         """
         Return self as bytes.
 
@@ -529,16 +561,22 @@ class comma_separated_IPs(object):
         assert self.size, "can't pack mixed-version list of IPs"
         return b''.join(a.packed for a in self)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[IPv4Address | IPv6Address]:
         """
         Iterate over IP addresses.
 
         >>> [ip for ip in comma_separated_IPs("::1,192.168.1.1")]
         [IPv6Address('::1'), IPv4Address('192.168.1.1')]
         """
-        return iter(self._items)
+        return iter(
+            [
+                ip
+                for ip in self._items
+                if isinstance(ip, IPv4Address) or isinstance(ip, IPv6Address)
+            ]
+        )
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: Any) -> Any:
         """
         Get item at index.
 
@@ -559,7 +597,7 @@ class comma_separated_IPs(object):
         """
         return list(self)[idx]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Return the type of the class with its IP address.
 
@@ -584,7 +622,7 @@ class comma_separated_IPs(object):
         """
         return "<%s(%r)>" % (type(self).__name__, str(self))
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Return comma-separated IP addresses as a string.
 
@@ -596,14 +634,11 @@ class comma_separated_IPs(object):
         >>> ip.__str__()
         '192.168.0.1'
 
-        >>> ip_multiple = \
-        comma_separated_IPs('192.168.29.32,127.0.0.1,149.132.22.70')
+        >>> ip_multiple = comma_separated_IPs('192.168.29.32,127.0.0.1,149.132.22.70')  # noqa: E501
         >>> ip_multiple.__str__()
         '192.168.29.32,127.0.0.1,149.132.22.70'
 
-        >>> ip_multiple = \
-        comma_separated_IPs('fe80::1,fe80::2,fe80::3')
-        >>> ip_multiple.__str__()
+        >>> comma_separated_IPs('fe80::1,fe80::2,fe80::3').__str__()
         'fe80::1,fe80::2,fe80::3'
         """
         if self._str is None:
@@ -612,8 +647,6 @@ class comma_separated_IPs(object):
 
 
 class IPs(comma_separated_IPs):
-    "TODO: rename comma_separated_IPs to IPs"
-
     @property
     def v4s(self) -> list[IPv4Address]:
         return [a for a in self if a.version == 4]
@@ -689,7 +722,7 @@ class comma_separated_Nets(comma_separated_IPs):
     <comma_separated_Nets('fe80::/10,fe80::/10')>
     """
 
-    def __init__(self, _str):
+    def __init__(self, _str: str) -> None:
         self._str = str(_str)
         self._items = tuple(
             ip_network(ip) for ip in self._str.split(',') if ip
@@ -701,11 +734,11 @@ class Constraint(object):
     Abstract base class for Schema validation directives.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.args = args
         self.kwargs = kwargs
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Function to return a constraint object.
         >>> Constraint({4:3})
@@ -718,7 +751,7 @@ class Constraint(object):
         )
         return f"{type(self).__name__}({', '.join(map(repr, self.args))})"
 
-    def validate(self, value):
+    def validate(self, value: Any) -> Any:
         """
         >>> Constraint.validate(int_range(6,9), 7)
         7
@@ -735,7 +768,8 @@ class Constraint(object):
         else:
             raise ValueError("%s check failed on %r" % (self, value))
 
-    def constraint(self):
+    @staticmethod
+    def constraint(*args: Any, **kwargs: Any) -> Any:
         """
         Constraint subclasses must implement this method.
         """
@@ -749,7 +783,12 @@ class Length(Constraint):
     """
 
     @staticmethod
-    def constraint(value, length=None, min=None, max=None):
+    def constraint(
+        value: str,
+        length: Optional[int] = None,
+        min: Optional[int] = None,
+        max: Optional[int] = None,
+    ) -> str:
         """
         Validates the length of a given string. Min and/or Max can be
         specified, or a precise length.
@@ -790,7 +829,7 @@ class Length(Constraint):
 
 class int_range(Constraint):
     @staticmethod
-    def constraint(value, min, max):
+    def constraint(value: int, min: int, max: int) -> int:
         """
         Validates value, which must be an integer between min and max.
         Returns the value if constraints are met, false otherwise.
@@ -820,7 +859,7 @@ class int_range(Constraint):
 
 
 class colon_hex_bytes(bytes):
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Return the hex representation as a string.
 
@@ -830,7 +869,7 @@ class colon_hex_bytes(bytes):
         """
         return ":".join("%x" % byte for byte in self)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Return the canonical string representation of the colon_hex_bytes
         object.
@@ -842,7 +881,7 @@ class colon_hex_bytes(bytes):
         return repr(str(self))
 
     @classmethod
-    def with_len(cls, length):
+    def with_len(cls, length: int) -> Any:
         """
         >>> a = colon_hex_bytes.with_len(3).validate(b'ABC')
         >>> a
@@ -863,6 +902,7 @@ class colon_hex_bytes(bytes):
         '41:42:43:44'
         """
         str_len = length * 3 - 1
+
         return Or(
             And(
                 str,
@@ -873,9 +913,11 @@ class colon_hex_bytes(bytes):
                 Use(cls),
             ),
             And(bytes, Length(length), Use(cls)),
-            error=f"{{!r}} is not {length} bytes or a {str_len}-char "
-            f"colon-separated hex string "
-            f"representing {length} bytes",
+            error=(
+                f"{{!r}} is not {length} bytes or a {str_len}-char "
+                f"colon-separated hex string "
+                f"representing {length} bytes"
+            ),
         )
 
 
@@ -890,7 +932,7 @@ class b64_bytes(bytes):
     repr which shows the first six bytes of its base64 encoding.
     """
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         Function to return a string representation of entered bytes.
 
@@ -904,7 +946,7 @@ class b64_bytes(bytes):
         """
         return b64encode(self).decode()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Function to return a base64 representation of entered bytes.
 
@@ -916,7 +958,7 @@ class b64_bytes(bytes):
         return "<b64:%s...(%s)>" % (str(self)[:6], len(self))
 
     @classmethod
-    def with_len(cls, length):
+    def with_len(cls, length: int) -> Any:
         """
         Produces a schema object which accepts either bytes or base64-encoded
         strings, and returns b64_bytes objects while enforcing a length
@@ -1006,9 +1048,11 @@ Flexibool = And(
     "<true|false|1|0|on|off|yes|no|ja|nein|nej|y|j|n>",
 )
 
+T = TypeVar("T", bound="queryable")
 
-class queryable(dict):
-    def limit(self, **kw):
+
+class queryable(dict[str, Any]):
+    def limit(self, **kw: Any) -> Self:
         """
         >>> d = {1:{"enabled":True},2:{"enabled":False}}
         >>> d
@@ -1034,7 +1078,7 @@ class queryable(dict):
             )
         )
 
-    def limit_attr(self, **kw):
+    def limit_attr(self, **kw: Any) -> Self:
         return type(self)(
             (name, item)
             for name, item in self.items()
@@ -1048,7 +1092,7 @@ class queryable(dict):
             )
         )
 
-    def by(self, key):
+    def by(self, key: str) -> Self:
         res = type(self)()
         for item in self.values():
             value = getattr(item, key)
@@ -1065,7 +1109,7 @@ class queryable(dict):
         return res
 
 
-class chunkable_values(dict):
+class chunkable_values(dict[str, str]):
     """
     This chunks and unchunks dictionary values.
 
@@ -1094,7 +1138,7 @@ class chunkable_values(dict):
     True
     """
 
-    def chunk(self, length):
+    def chunk(self, length: int) -> Self:
         res = {}
         for k, v in list(self.items()):
             if len(k) + len(str(v)) + 1 <= length:
@@ -1114,7 +1158,7 @@ class chunkable_values(dict):
                     c += 1
         return type(self)(res)
 
-    def unchunk(self):
+    def unchunk(self) -> Self:
         """Combines chunks of this dictionary.
 
         >>> chunkable_values({'a01':'23','a00':'01','a02':'45'}).unchunk()
@@ -1134,13 +1178,13 @@ class chunkable_values(dict):
         return type(self)(res)
 
 
-def addrs_in_subnets(addrs, subnets):
+def addrs_in_subnets(addrs: list[T], subnets: set[T]) -> list[T]:
     """
     >>> current_subnets={'10.0.0.0/24': ['10.0.0.9', '10.0.0.51',
     ... '10.0.0.17'], '10.0.1.0/24':
     ... ['10.0.1.22', '10.0.1.73'], '10.0.5.0/24': ['10.0.5.21', '10.0.5.63']}
     >>> addrs = ['10.0.0.0/24','10.0.14.0/24', '10.0.5.0/24']
-    >>> addrs_in_subnets(addrs,current_subnets)
+    >>> addrs_in_subnets(addrs, current_subnets)
     ['10.0.0.0/24', '10.0.5.0/24']
 
     >>> current_subnets={'fe80::/10':['fe80::1', 'fe80::2'],
@@ -1156,7 +1200,9 @@ def addrs_in_subnets(addrs, subnets):
     ]
 
 
-def sort_LL_first(ips):
+def sort_LL_first(
+    ips: Sequence[IPv4Address | IPv6Address],
+) -> list[IPv4Address | IPv6Address]:
     """
     This sorts a list of IPs to put the link-local ones (if any) first, and to
     secondarily to place v6 addresses ahead of v4.
@@ -1187,7 +1233,7 @@ class KeyFile(yamlrepr_hl, schemattrdict, yamlfile):
     )
 
 
-def organize_dbus_if_active():
+def organize_dbus_if_active() -> Organize:
     """
     Returns a DBus proxy to organize, if it is running. Exits otherwise.
 
@@ -1221,10 +1267,14 @@ def organize_dbus_if_active():
     SystemExit: Organize DBus service is not configured
     """
 
+    from .organize import Organize
+
     bus = pydbus.SystemBus()
-    if bus.dbus.NameHasOwner(_ORGANIZE_DBUS_NAME):
-        return bus.get(_ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH)
-    elif _ORGANIZE_DBUS_NAME in bus.dbus.ListActivatableNames():
+    if bus.dbus.NameHasOwner(_ORGANIZE_DBUS_NAME):  # type: ignore
+        return cast(
+            Organize, bus.get(_ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH)
+        )
+    elif _ORGANIZE_DBUS_NAME in bus.dbus.ListActivatableNames():  # type: ignore  # noqa: E501
         raise SystemExit(
             "Organize is not running (but it is dbus-activatable; use 'vula"
             " start' to start it.)."
@@ -1234,14 +1284,14 @@ def organize_dbus_if_active():
 
 
 def sfmt(
-    a,
-    base=1000,
-    places=0,
-    unit='',
-    infix='',
-    preprefix='',
-    prefixes="kMGTPEZYH",
-):
+    a: Union[int, float],
+    base: int = 1000,
+    places: int = 0,
+    unit: str = '',
+    infix: str = '',
+    preprefix: str = '',
+    prefixes: str = "kMGTPEZYH",
+) -> str:
     """
     >>> sfmt(0), sfmt(1), sfmt(999)
     ('0', '1', '999')
@@ -1293,7 +1343,7 @@ def sfmt(
     )
 
 
-pprint_bytes = lambda b: sfmt(
+pprint_bytes: Callable[[int | float], str] = lambda b: sfmt(
     b,
     base=1024,
     unit="B",
@@ -1302,7 +1352,7 @@ pprint_bytes = lambda b: sfmt(
     prefixes="KMGTPEZYH",
     places=2,
 )
-format_byte_stats = lambda stats: {
+format_byte_stats: Callable[[dict[str, Any]], dict[Any, str]] = lambda stats: {
     k: pprint_bytes(v) for k, v in stats.items()
 }
 

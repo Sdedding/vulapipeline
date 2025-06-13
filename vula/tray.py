@@ -49,13 +49,15 @@ def main() -> None:  # noqa: 901
         organize_bus: Any
         systemd_bus: Any
 
-        def __init__(self):
+        def __init__(self) -> None:
             try:
                 self.system_bus = SystemBus()
                 self.organize_dbus = self.system_bus.get(
                     _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
                 )
-                self.systemd_bus = self.system_bus.get(".systemd1")
+                self.systemd_bus = self.system_bus.get(
+                    ".systemd1"
+                )  # type: ignore
             except GLib.Error:
                 print("Vula is not running.")
                 sys.exit(3)
@@ -146,19 +148,19 @@ def main() -> None:  # noqa: 901
 
             return peer_menu_item
 
-        def _rediscover(self):
+        def _rediscover(self) -> None:
             """
             Calls organize.rediscover() over DBus.
             """
             self.organize_dbus.rediscover()
 
-        def _release_gateway(self):
+        def _release_gateway(self) -> None:
             """
             Calls organize.release_gateway() over DBus.
             """
             self.organize_dbus.release_gateway()
 
-        def _repair(self):
+        def _repair(self) -> None:
             """
             Calls organize.repair() over DBus.
             """
