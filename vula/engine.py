@@ -234,7 +234,7 @@ class Engine(schemattrdict, yamlfile):
 
     @staticmethod
     def write(
-        method: Callable[[Engine, dict[str, Any], str, Any], T]
+        method: Callable[[Engine, dict[str, Any], str, Any], T],
     ) -> Callable[[Engine, str | Sequence[str], Any], None]:
         """
         Decorator for write methods.

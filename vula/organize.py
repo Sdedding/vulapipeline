@@ -748,12 +748,16 @@ class Organize(attrdict):
                 "p": self.prefs.primary_ip,
                 "pk": self._keys.wg_Curve25519_pub_key,
                 "c": self._keys.pq_ctidhP512_pub_key,
-                "v4a": ','.join(str(a) for a in addrs if a.version == 4)
-                if self.v4_enabled
-                else (),
-                "v6a": ','.join(str(a) for a in addrs if a.version == 6)
-                if self.v6_enabled
-                else (),
+                "v4a": (
+                    ','.join(str(a) for a in addrs if a.version == 4)
+                    if self.v4_enabled
+                    else ()
+                ),
+                "v6a": (
+                    ','.join(str(a) for a in addrs if a.version == 6)
+                    if self.v6_enabled
+                    else ()
+                ),
                 "vk": self._keys.vk_Ed25519_pub_key,
                 "vf": vf,
                 "dt": "86400",
@@ -1066,9 +1070,11 @@ class Organize(attrdict):
             "discovering on {ips} and publishing {pub}".format(
                 ips=discover_ips,
                 pub=(
-                    'on same'
-                    if sorted(ips_to_publish) == discover_ips
-                    else ips_to_publish,
+                    (
+                        'on same'
+                        if sorted(ips_to_publish) == discover_ips
+                        else ips_to_publish
+                    ),
                 ),
             )
         )
