@@ -61,6 +61,7 @@ class Prefs(Frame):
             highlightbackground=BACKGROUND_COLOR,
             highlightcolor=BACKGROUND_COLOR,
             highlightthickness=1,
+
         )
 
         self.bottom_frame = Frame(
@@ -111,10 +112,22 @@ class Prefs(Frame):
                 scrollregion=self.pref_canvas.bbox('all')
             ),
         )
+
         self.pref_canvas.create_window(
             (0, 0), window=self.pref_content_frame, anchor="nw"
         )
-
+        self.pref_content_frame.bind_all(
+            "<MouseWheel>",
+            lambda e: self.pref_canvas.yview_scroll(-1 * (e.delta // 120), "units")
+        )
+        self.pref_content_frame.bind_all(
+            "<Button-4>",
+            lambda e: self.pref_canvas.yview_scroll(-1, "units")
+        )
+        self.pref_content_frame.bind_all(
+            "<Button-5>",
+            lambda e: self.pref_canvas.yview_scroll(1, "units")
+        )
         self.top_frame.pack(
             fill="both", expand=True, padx=(0, 50), pady=(50, 0), side="top"
         )
@@ -166,7 +179,7 @@ class Prefs(Frame):
             activebackground=BACKGROUND_COLOR,
             activeforeground=BACKGROUND_COLOR,
         )
-        self.btn_edit.pack(side="left", padx=10, pady=10)
+        self.btn_edit.pack(side="right", padx=10, pady=10)
 
     def display_header(self) -> None:
         self.title_frame = Frame(
@@ -298,11 +311,11 @@ class Prefs(Frame):
 
     def show_save_cancel(self) -> None:
         self.btn_edit.pack_forget()
-        self.btn_cancel.pack(side="left", padx=10, pady=10)
-        self.btn_save.pack(side="left", padx=10, pady=10)
+        self.btn_save.pack(side="right", padx=10, pady=10)
+        self.btn_cancel.pack(side="right", padx=10, pady=10)
 
     def hide_save_cancel(self) -> None:
-        self.btn_edit.pack(side="left", padx=10, pady=10)
+        self.btn_edit.pack(side="right", padx=10, pady=10)
         self.btn_save.pack_forget()
         self.btn_cancel.pack_forget()
 
@@ -447,7 +460,6 @@ class Prefs(Frame):
                     )
                     label.grid(row=counter, column=1, padx=1, pady=1, sticky=W)
                 counter += 1
-
 
 if __name__ == "__main__":
     import doctest

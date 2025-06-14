@@ -68,7 +68,7 @@ class Peers(Frame):
             fill=TEXT_COLOR_HEADER_2,
             font=(FONT, FONT_SIZE_HEADER_2),
         )
-        self.title_frame.grid(row=0, column=0, pady=(10, 0), sticky="w")
+        self.title_frame.grid(row=0, column=0, pady=20, padx=30, sticky="w")
 
     def display_buttons(self) -> None:
         self.buttons_frame = Frame(
@@ -153,8 +153,6 @@ class Peers(Frame):
             )
             no_peers_label.grid(row=counter, column=0, sticky="w", pady=10)
 
-        # Get slice of array for current page
-        # [0:5], [5, 10] etc.
         peers_for_page = peers[
             (self.peer_page - 1)
             * self.peers_per_page : (self.peer_page - 1)
@@ -166,7 +164,7 @@ class Peers(Frame):
             peer_frame = Frame(
                 self.app, bg=BACKGROUND_COLOR, width=400, height=70
             )
-            peer_frame.grid(row=counter, column=0, sticky="w", pady=10)
+            peer_frame.grid(row=counter, column=0, pady=10)
 
             canvas = Canvas(
                 peer_frame,

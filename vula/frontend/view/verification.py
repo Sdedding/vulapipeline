@@ -33,8 +33,8 @@ class VerificationKeyFrame(Frame):
         self.grid_columnconfigure(0, weight=1)
 
         title_frame.grid(row=0, sticky="nw")
-        text_frame.grid(row=1, sticky="nw")
-        qr_frame.grid(row=2, sticky="nsew")
+        text_frame.grid(row=2, sticky="nsew")
+        qr_frame.grid(row=1, sticky="nsew")
 
         ttk.Label(
             title_frame,
@@ -50,8 +50,7 @@ class VerificationKeyFrame(Frame):
             ).items()
         }
 
-        text_frame.grid_rowconfigure(1, weight=1)
-        text_frame.grid_columnconfigure(2, weight=1)
+        text_frame.grid_columnconfigure(0, weight=1)
         self.button_image = PhotoImage(file=IMAGE_BASE_PATH + "clipboard.png")
 
         for desc in descriptors.values():
@@ -61,7 +60,7 @@ class VerificationKeyFrame(Frame):
                 text=vk,
                 style="Vula.TLabel",
                 font=(FONT, FONT_SIZE_TEXT_L),
-            ).grid(row=0, column=0, sticky="w")
+            ).grid(row=1, column=0)
 
             def command(key: str = vk) -> None:
                 self._add_to_clipboard(key)
@@ -72,7 +71,7 @@ class VerificationKeyFrame(Frame):
                 text="Copy",
                 command=command,
                 style="Vula.TButton",
-            ).grid(row=0, column=1, padx=5)
+            ).grid(row=2, column=0, padx=5)
 
             qr_data = "local.vula:vk:" + vk
             ttk.Label(
