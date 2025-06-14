@@ -5,12 +5,10 @@ from vula.frontend import Controller
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
     FONT,
-    FONT_SIZE_HEADER,
     FONT_SIZE_TEXT_L,
     FONT_SIZE_TEXT_XL,
     HEIGHT,
     IMAGE_BASE_PATH,
-    TEXT_COLOR_HEADER,
     TEXT_COLOR_WHITE,
     WIDTH,
 )
@@ -33,24 +31,18 @@ class App(tk.Tk):
         self.config(bg=BACKGROUND_COLOR)
 
         # create all of the main containers
-        header_frame = Frame(
-            self, bg=BACKGROUND_COLOR, width=1200, height=50, pady=3
-        )
+
         content_frame = Frame(
-            self, bg=BACKGROUND_COLOR, width=1200, height=600, padx=3, pady=3
-        )
+            self, bg=BACKGROUND_COLOR, width=1200, height=600, padx=3, pady=3)
         footer_frame = Frame(
-            self, bg=BACKGROUND_COLOR, width=1200, height=150, pady=30, padx=30
-        )
+            self, bg=BACKGROUND_COLOR, width=1200, height=150, pady=30, padx=30)
         bottom_frame = Frame(
-            self, bg=BACKGROUND_COLOR, width=600, height=50, pady=3
-        )
+            self, bg=BACKGROUND_COLOR, width=600, height=50, pady=3)
 
         # layout all of the main containers
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        header_frame.grid(row=0, sticky="ew")
         content_frame.grid(row=1, sticky="nsew")
         footer_frame.grid(row=2, sticky="e")
         bottom_frame.grid(row=3, sticky="s")
@@ -59,14 +51,13 @@ class App(tk.Tk):
         content_frame.grid_rowconfigure(0, weight=1)
         content_frame.grid_columnconfigure(0, weight=1)
 
-        self.notebook = ttk.Notebook(content_frame)
+        self.notebook = ttk.Notebook(content_frame, style="TNotebook")
+
         self.notebook.grid(row=0, column=0, columnspan=2, sticky="nsew")
 
         peers_frame = Frame(self.notebook, bg=BACKGROUND_COLOR)
         pref_frame = Frame(self.notebook, bg=BACKGROUND_COLOR)
-        verification_frame = VerificationKeyFrame(
-            self.notebook, self.controller
-        )
+        verification_frame = VerificationKeyFrame(self.notebook, self.controller)
         descriptor_frame = DescriptorFrame(self.notebook, self.controller)
 
         self.notebook.add(peers_frame, text="Peers")
@@ -83,26 +74,6 @@ class App(tk.Tk):
 
         self.peers_new = Peers(peers_frame, self.controller)
         self.prefs = Prefs(pref_frame, self.controller)
-
-        header = Canvas(
-            header_frame,
-            bg=BACKGROUND_COLOR,
-            height=50,
-            width=1200,
-            bd=0,
-            highlightthickness=0,
-            relief="ridge",
-        )
-
-        header.place(x=0, y=0)
-        header.create_text(
-            30.0,
-            10.0,
-            anchor="nw",
-            text="Dashboard",
-            fill=TEXT_COLOR_HEADER,
-            font=(FONT, FONT_SIZE_HEADER),
-        )
 
         footer_frame.grid_rowconfigure(1, weight=1)
         footer_frame.grid_columnconfigure(1, weight=1)
