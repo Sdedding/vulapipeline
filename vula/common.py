@@ -485,14 +485,16 @@ class ConsistencyError(Exception):
 AddressInput = Union[str, bytes, IPv4Address, IPv6Address]
 AddressOutput = Union[IPv4Address, IPv6Address, IPv4Network, IPv6Network]
 
+
 class comma_separated_IPs(object):
-    addr_cls: Callable[
-        ..., IPv4Address | IPv6Address | IPv4Network | IPv6Network
-    ] | type[IPv4Address] | type[IPv6Address] | type[IPv4Network] | type[
-        IPv6Network
-    ] = lambda _, a: ip_address(
-        a
-    )
+    addr_cls: (
+        Callable[..., IPv4Address | IPv6Address | IPv4Network | IPv6Network]
+        | type[IPv4Address]
+        | type[IPv6Address]
+        | type[IPv4Network]
+        | type[IPv6Network]
+    ) = lambda _, a: ip_address(a)
+    size: Optional[int] = None
 
     def __init__(self, arg: Any) -> None:
         """
