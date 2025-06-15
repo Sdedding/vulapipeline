@@ -1,5 +1,6 @@
 import gettext
 
+
 import pkg_resources
 
 from .constants import (
@@ -31,6 +32,7 @@ from .constants import (
     WIDTH,
 )
 from .dataprovider import DataProvider, Peer, Prefs, StatusType
+from .controller import Controller
 
 locale_path = pkg_resources.resource_filename('vula', 'locale')
 lang_translations = gettext.translation(
@@ -66,8 +68,7 @@ __all__ = [
     "TEXT_COLOR_YELLOW",
     "WIDTH",
     "DataProvider",
-    "PeerType",
-    "PrefsType",
+    "Controller",
     "StatusType",
     "locale_path",
     "lang_translations",
