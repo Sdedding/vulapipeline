@@ -20,6 +20,19 @@ make
 Running `make` with no arguments will print this README and some configuration
 variables.
 
+## Quick start
+
+The most common targets are:
+
+* `make test` - builds the container image, creates two test containers on the
+  `vula-net` network and runs the automated tests.
+* `make gui` - launches a standalone desktop container with a noVNC server on
+  port `6080`.
+* `make test-gui` - starts the test network like `make test` and also runs the
+  GUI container on port `6080` connected to that network. Remove it with
+  `make test-gui-clean`.
+* `make sh i=2` - open a shell in test container number `2`.
+
 ## Distributions
 
 This Makefile accepts a `dist` argument specifying which Linux distribution to
@@ -193,14 +206,29 @@ target being run, so, in practice you might want to prefix it with `clean`. To
 go back to using a package-installed image, use `make clean dpkg-image` or `make
 clean rpm-image`.
 
+## GUI container
+
+Run `make gui` to launch a container with an XFCE desktop environment.
+The GUI image is created from the editable Vula image, so the first run
+will implicitly build that image if needed. The container starts
+`systemd` so D-Bus services are available and then launches the desktop
+via `start-gui.sh`. The container exposes a noVNC server on port `6080`.
+After the command completes, open `http://localhost:6080/vnc.html` in
+your web browser to access the GUI.
+
+`make test-gui` spins up the same two test containers created by `make test`
+and additionally launches the GUI container on port `6080`.  This allows
+manual interaction with the GUI while the other containers run in the
+background.  Clean up with `make test-gui-clean` or `make testnet-clean`.
+
 ## Cleaning up
 
 ### `make clean`
 
 This will delete the `.deb` package built in `../deb_dist`, the `vula-$dist`
-podman images, the test containers, and any stray intermediate containers. It
-will *not* delete the `vula-deps-$dist` images, which require network access to
-recreate.
+and `vula-gui-$dist` podman images, the test containers, and any stray
+intermediate containers. It will *not* delete the `vula-deps-$dist` images,
+which require network access to recreate.
 
 ### `make clean-all`
 
