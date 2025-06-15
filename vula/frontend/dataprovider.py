@@ -123,7 +123,12 @@ class DataProvider:
 
     def get_status(self) -> Optional[StatusType] | None:
         # Fetch the data from the systemd dbus
-        systemd = pydbus.SystemBus().get(".systemd1", "/")
+        if not self.backend.connect(service=False):
+            return None
+        bus = self.backend.bus
+        # Explicitly retrieve the systemd manager object to avoid interface
+        # resolution issues when calling methods such as ``GetUnit``.
+        systemd = bus.get(".systemd1", "/org/freedesktop/systemd1")
 
         # Create an empty dict for the status
         status = StatusType(publish="", discover="", organize="")
