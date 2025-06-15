@@ -1,0 +1,5 @@
+.vscode/
+
+cmd/discover/discover
+cmd/discover/listnames.sh
+cmd/publish/publish

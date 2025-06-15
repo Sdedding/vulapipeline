@@ -434,6 +434,28 @@ format: .deps-$(dist)-stamp
 	@echo "Running format"
 	podman run $(podman_args) --rm -it vula-deps-$(dist) $(bin_sh) -c "pipx run pipenv run black vula test podman"
 
+.PHONY: gotest
+gotest: start
+	podman run --rm -it \
+		-v $(shell readlink -f ../contrib/vula-go):/root/vula-go:z \
+		--workdir /root/vula-go \
+		--uts=private golang:1.24.4 \
+		sh -c ' \
+			apt update && apt install -y clang && \
+			go install honnef.co/go/tools/cmd/staticcheck@latest && \
+			go install github.com/securego/gosec/v2/cmd/gosec@latest && \
+			go install golang.org/x/vuln/cmd/govulncheck@latest && \
+			go install github.com/kisielk/errcheck@latest && \
+			go install github.com/gordonklaus/ineffassign@latest && \
+			go test ./... && \
+			go test -race ./... && \
+			CC=clang go test -msan ./... && \
+			go test -asan ./... && \
+			staticcheck ./... && \
+			errcheck ./... && \
+			govulncheck ./... && \
+			gosec ./...'
+
 .PHONY: mypy
 mypy: .deps-$(dist)-stamp
 	@echo "Checking vula project types using mypy"

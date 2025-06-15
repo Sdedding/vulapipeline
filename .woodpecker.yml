@@ -34,9 +34,29 @@ steps:
       - ./misc/install-ci-deps.sh
       - . $(pipenv --venv)/bin/activate
       - make check
-      - xvfb-run -- pipenv run pytest -v 
+      - xvfb-run -- pipenv run pytest -v
       - xvfb-run -- pipenv run pytest --cov
       - make sast-analysis
       - make wheel
       - make deb
       - dpkg -I dist/*.deb
+
+  go_test:
+    depends_on: []
+    image: golang:1.24.4
+    commands:
+      - apt update && apt install -y clang libclang-rt-19-dev
+      - cd contrib/vula-go
+      - go install honnef.co/go/tools/cmd/staticcheck@latest
+      - go install github.com/securego/gosec/v2/cmd/gosec@latest
+      - go install golang.org/x/vuln/cmd/govulncheck@latest
+      - go install github.com/kisielk/errcheck@latest
+      - go install github.com/gordonklaus/ineffassign@latest
+      - go test ./...
+      - go test -race ./...
+      - CC=clang go test -msan ./...
+      - go test -asan ./...
+      - staticcheck ./...
+      - errcheck ./...
+      - govulncheck ./...
+      - gosec ./...
