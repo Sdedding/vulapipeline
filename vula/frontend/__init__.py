@@ -30,7 +30,7 @@ from .constants import (
     TEXT_COLOR_YELLOW,
     WIDTH,
 )
-from .dataprovider import DataProvider, PeerType, PrefsType, StatusType
+from .dataprovider import DataProvider, Peer, Prefs, StatusType
 
 locale_path = pkg_resources.resource_filename('vula', 'locale')
 lang_translations = gettext.translation(
