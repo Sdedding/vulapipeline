@@ -4,6 +4,7 @@ import copy
 import traceback
 from functools import reduce, wraps
 from threading import Lock
+from dataclasses import dataclass
 from typing import (
     Optional,
     TypeAlias,
