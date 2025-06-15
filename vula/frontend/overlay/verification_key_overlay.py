@@ -1,8 +1,7 @@
-import gettext
 import json
 import tkinter as tk
 
-from vula.frontend import DataProvider
+from vula.frontend import Controller
 from vula.frontend.components import QRCodeLabel
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
@@ -16,15 +15,12 @@ from vula.frontend.constants import (
 from vula.peer import Descriptor
 from .popupMessage import PopupMessage
 
-_ = gettext.gettext
-
 
 class VerificationKeyOverlay(tk.Toplevel):
-    data = DataProvider()
-
-    def __init__(self, parent: tk.Tk) -> None:
+    def __init__(self, parent: tk.Tk, data: Controller) -> None:
         tk.Toplevel.__init__(self, parent)
         self.root = parent
+        self.data = data
 
         self.wm_transient(self.root)
 
@@ -66,7 +62,7 @@ class VerificationKeyOverlay(tk.Toplevel):
         ).pack()
 
         my_descriptors = {
-            ip: Descriptor(d)
+            ip: Descriptor.parse(d)
             for ip, d in json.loads(self.data.our_latest_descriptors()).items()
         }
 

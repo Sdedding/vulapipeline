@@ -1,4 +1,3 @@
-import gettext
 import tkinter as tk
 from tkinter import (
     Button,
@@ -7,13 +6,14 @@ from tkinter import (
     Frame,
     Label,
     PhotoImage,
-    Scrollbar,
     Text,
+    ttk,
 )
 from tkinter.constants import W
-from typing import cast
+from typing import Optional, cast
+from dataclasses import asdict
 
-from vula.frontend import DataProvider, PrefsType
+from vula.frontend import Controller, Prefs as PrefsData
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
     BACKGROUND_COLOR_CARD,
@@ -28,20 +28,19 @@ from vula.frontend.constants import (
     TEXT_COLOR_RED,
     TEXT_COLOR_WHITE,
 )
+from ..style import configure_styles
 from vula.frontend.dataprovider import PrefsTypeKeys
 from vula.frontend.overlay import PopupMessage
-
-_ = gettext.gettext
+from gettext import gettext as _
 
 
 class Prefs(Frame):
-    data = DataProvider()
-
-    def __init__(self, frame: Frame) -> None:
+    def __init__(self, frame: Frame, data: Controller) -> None:
         self.show_editable: bool = False
-        self.prefs: PrefsType
+        self.prefs: PrefsData
         self.widgets: dict[str, Text | Button] = {}
         self.frame: Frame = frame
+        self.data = data
 
         self.display_header()
         self.display_frames()
@@ -83,11 +82,12 @@ class Prefs(Frame):
             highlightthickness=1,
         )
 
-        self.yscrollbar = Scrollbar(
+        self.style = configure_styles()
+        self.yscrollbar = ttk.Scrollbar(
             self.top_frame,
             orient="vertical",
             command=self.pref_canvas.yview,
-            relief="flat",
+            style="Vula.Vertical.TScrollbar",
         )
         self.pref_content_frame = Frame(
             self.pref_canvas,
@@ -189,7 +189,7 @@ class Prefs(Frame):
             fill=TEXT_COLOR_HEADER_2,
             font=(FONT, FONT_SIZE_HEADER_2),
         )
-        self.title_frame.grid(row=0, column=0, pady=(10, 0), sticky="w")
+        self.title_frame.pack(pady=(10, 0), anchor="w")
 
     def get_prefs(self) -> None:
         self.prefs = self.data.get_prefs()
@@ -216,24 +216,23 @@ class Prefs(Frame):
             event.widget.config(bg=TEXT_COLOR_RED)
 
     def save_prefs(self) -> None:
-        for pref, values in self.prefs.items():
+        prefs_dict = asdict(self.prefs)
+        for pref, values in prefs_dict.items():
             _pref: PrefsTypeKeys = cast(PrefsTypeKeys, pref)
             widget_type = self.widgets[pref]
-            if isinstance(widget_type, Text):
-                widget = widget_type
+            if isinstance(widget_type, (Text, Button)):
+                widget: Text | Button = widget_type
                 if isinstance(values, list):
-                    current_list = widget.get("1.0", "end").split()
+                    widget_text = cast(Text, widget)
+                    current_list = widget_text.get("1.0", "end").split()
                     for value in current_list:
-                        if isinstance(value, list):
-                            if value not in self.prefs[_pref]:
-                                res = self.data.add_pref(pref, value)
-                                if self.show_error(res) == 1:
-                                    return
-                    for value in values:
-                        if value not in current_list:
-                            res = self.data.remove_pref(pref, value)
+                        if value not in prefs_dict[_pref]:
+                            res = self.data.add_pref(pref, value)
                             if self.show_error(res) == 1:
                                 return
+                    for value in values:
+                        if value not in current_list:
+                            self.data.remove_pref(pref, value)
 
                 # boolean based prefs
                 elif isinstance(values, bool):
@@ -243,7 +242,8 @@ class Prefs(Frame):
                         return
                 # int based prefs
                 elif isinstance(values, int):
-                    int_value = str(widget[pref].get("1.0", "end"))
+                    widget_text = cast(Text, widget)
+                    int_value = str(widget_text.get("1.0", "end"))
                     res = self.data.set_pref(pref, int_value)
                     if self.show_error(res) == 1:
                         return
@@ -253,7 +253,7 @@ class Prefs(Frame):
         self.hide_save_cancel()
         self.update_all()
 
-    def show_error(self, res: str) -> int:
+    def show_error(self, res: Optional[str]) -> int:
         """
         Show error message if needed and return a status code 0 or 1
 
@@ -310,7 +310,8 @@ class Prefs(Frame):
         counter: int = 1
 
         # Loop over all preferences and display them
-        for pref, value in self.prefs.items():
+        prefs_dict = asdict(self.prefs)
+        for pref, value in prefs_dict.items():
             # show preference descriptions on the left
             pref_label = Label(
                 self.pref_content_frame,

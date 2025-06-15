@@ -5,6 +5,7 @@ import time
 from base64 import b64encode
 from datetime import timedelta
 from io import StringIO
+import types
 from ipaddress import (
     IPv4Address,
     IPv6Address,
@@ -60,7 +61,14 @@ from .notclick import (
     yellow,
 )
 
-_qrcode = None
+from functools import lru_cache
+
+
+@lru_cache(maxsize=1)
+def _get_qrcode() -> types.ModuleType:
+    import qrcode
+
+    return qrcode
 
 
 @DualUse.object()
@@ -322,13 +330,9 @@ class Descriptor(schemattrdict, serializable):
 
         It returns a string.
         """
-        global _qrcode
-        if _qrcode is None:
-            import qrcode as _qrcode
-
-        assert _qrcode is not None
+        qrcode = _get_qrcode()
         sio = StringIO()
-        qr = _qrcode.QRCode()
+        qr = qrcode.QRCode()
         qr.add_data(data="local.vula:desc:" + str(self))
         qr.print_ascii(out=sio)
         sio.seek(0)

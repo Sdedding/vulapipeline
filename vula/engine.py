@@ -4,6 +4,7 @@ import copy
 import traceback
 from functools import reduce, wraps
 from threading import Lock
+from dataclasses import dataclass
 from typing import (
     Optional,
     TypeAlias,
@@ -26,6 +27,26 @@ TriggerResult: TypeAlias = Any
 
 if TYPE_CHECKING:
     from vula.peer import Peer
+
+
+@dataclass
+class WriteOp:
+    """A pending write operation recorded during event processing.
+
+    Attributes
+    ----------
+    kind:
+        The type of write, one of ``SET``, ``ADD`` or ``REMOVE``.
+    path:
+        A sequence describing the key path inside the state structure
+        affected by this write.
+    value:
+        The value associated with the operation.
+    """
+
+    kind: str
+    path: Sequence[str]
+    value: Any
 
 
 class Result(yamlrepr_hl, schemattrdict):
@@ -160,6 +181,28 @@ class Engine(schemattrdict, yamlfile):
 
     def record(self, result: ResultType) -> None:
         pass
+
+    def apply_writes(self) -> None:
+        assert self.result is not None
+        assert self.next_state is not None
+        for op in self.result.writes:
+            if isinstance(op, WriteOp):
+                kind, path, value = op.kind, op.path, op.value
+            else:
+                kind, path, value = op
+
+            if isinstance(path, str):
+                path = path.split('.')
+            if len(path) == 1:
+                target = self.next_state
+                key = path[0]
+            else:
+                target = reduce(lambda a, b: a[b], path[:-1], self.next_state)
+                key = path[-1]
+
+            getattr(type(self), '_' + kind).__wrapped__(
+                self, target, key, raw(value)
+            )
 
     @staticmethod
     def event(method: Callable[P, T]) -> Callable[P, ResultType]:
