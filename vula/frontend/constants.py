@@ -1,6 +1,7 @@
 """
 vula frontend constant values
 """
+
 WIDTH = 1050
 HEIGHT = 800
 

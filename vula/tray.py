@@ -1,9 +1,10 @@
+from __future__ import annotations
+import os
 import sys
 from base64 import b64decode
 from io import BytesIO
 from threading import Thread
-from time import sleep
-from typing import Any, List, NoReturn, TYPE_CHECKING
+from typing import Any, List, TYPE_CHECKING
 
 import click
 from PIL.ImageFile import ImageFile
@@ -26,13 +27,26 @@ from vula.common import escape_ansi
 from vula.constants import (
     _ORGANIZE_DBUS_NAME,
     _ORGANIZE_DBUS_PATH,
-    _TRAY_UPDATE_INTERVAL,
 )
 from vula.frontend import ui
 
 
+def systemd_unit_to_dbus_path(unit_name: str) -> str:
+    """
+    Convert a systemd unit name (e.g. ``"vula-publish.service"``)
+    to the corresponding D-Bus object path.
+    >>> path = systemd_unit_to_dbus_path("vula-publish.service")
+    >>> path
+    '/org/freedesktop/systemd1/unit/vula_2dpublish_2eservice'
+    """
+    return "/org/freedesktop/systemd1/unit/" + (
+        unit_name.replace("_", "_5f").replace("-", "_2d").replace(".", "_2e")
+    )
+
+
 @click.command(short_help="Start the system tray icon.")
 def main() -> None:  # noqa: 901
+    os.environ.setdefault("NO_AT_BRIDGE", "1")
     try:
         from pystray import Icon, Menu, MenuItem
     except ModuleNotFoundError:
@@ -42,10 +56,10 @@ def main() -> None:  # noqa: 901
         print("No display available.")
         sys.exit(2)
 
-    class Tray(object):
+    class Tray:
         _gui_thread: Thread | None = None
-        _update_thread: Thread | None = None
-        icon: Icon
+        _dbus_loop_thread: Thread | None = None
+        icon: Icon | None = None
         organize_bus: Any
         systemd_bus: Any
 
@@ -56,11 +70,37 @@ def main() -> None:  # noqa: 901
                     _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
                 )
                 self.systemd_bus = self.system_bus.get(
-                    ".systemd1"
-                )  # type: ignore
+                    "org.freedesktop.systemd1",
+                    "/org/freedesktop/systemd1",
+                )
             except GLib.Error:
                 print("Vula is not running.")
                 sys.exit(3)
+
+            self.loop = GLib.MainLoop()
+            self._dbus_loop_thread = Thread(target=self.loop.run, daemon=True)
+            self._dbus_loop_thread.start()
+
+            self.system_bus.subscribe(
+                iface="org.freedesktop.DBus",
+                signal="NameOwnerChanged",
+                arg0=_ORGANIZE_DBUS_NAME,
+                signal_fired=lambda *a, **kw: self.icon
+                and self.icon.update_menu(),
+            )
+
+            for service in ("publish", "discover", "organize"):
+                unit_path = systemd_unit_to_dbus_path(
+                    f"vula-{service}.service"
+                )
+                self.system_bus.subscribe(
+                    sender="org.freedesktop.systemd1",
+                    object=unit_path,
+                    iface="org.freedesktop.DBus.Properties",
+                    signal="PropertiesChanged",
+                    signal_fired=lambda *a, **kw: self.icon
+                    and self.icon.update_menu(),
+                )
 
         def _get_icon(self) -> ImageFile:
             """
@@ -190,7 +230,8 @@ def main() -> None:  # noqa: 901
             """
             Removes the system-tray icon.
             """
-            self.icon.stop()
+            if self.icon is not None:
+                self.icon.stop()
 
         def _open_gui(self) -> None:
             """
@@ -225,30 +266,10 @@ def main() -> None:  # noqa: 901
                 MenuItem("Quit", self._remove_tray_icon),
             ]
 
-        def _update_icon(self) -> NoReturn:
-            """
-            Updates the menu items in the system-tray icon.
-            """
-            while True:
-                self.icon.update_menu()
-                sleep(_TRAY_UPDATE_INTERVAL)
-
         def _setup_icon(self, icon: Icon) -> None:
-            """
-            Set up the system-tray icon by making it visible and starting a
-            thread to keep it updated.
-
-            An update thread is needed because the menu doesn't get updated
-            when you open it but only when you click on actions inside the
-            menu. When we display "external" information such as the peers and
-            vula status, we need to keep the menu updated ourselves or else we
-            might show outdated information.
-            """
+            """Make the tray icon visible and register signal handlers."""
             self.icon = icon
             self.icon.visible = True
-            self._update_thread = Thread(target=lambda: self._update_icon())
-            self._update_thread.daemon = True
-            self._update_thread.start()
 
         def show(self) -> None:
             """
