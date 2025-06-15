@@ -38,6 +38,19 @@ apt install -y --no-install-recommends \
 #  cython3 build-essential cmake debhelper-compat dh-python python3-all-dev \
 #  python3-build python3-cogapp python3-venv;
 
+# vula-go
+apt install -y --no-install-recommends clang libclang-rt-dev golang;
+go install honnef.co/go/tools/cmd/staticcheck@latest;
+go install github.com/securego/gosec/v2/cmd/gosec@latest;
+go install golang.org/x/vuln/cmd/govulncheck@latest;
+go install github.com/kisielk/errcheck@latest;
+go install github.com/gordonklaus/ineffassign@latest;
+cd /deps/vula-go;
+go mod tidy;
+go mod vendor;
+cp `go env GOPATH`/bin/* /usr/local/bin/
+cd /deps;
+
 if [ ! -d highctidh ];
 then
   git clone https://www.codeberg.org/vula/highctidh;

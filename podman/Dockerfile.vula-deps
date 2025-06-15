@@ -14,6 +14,7 @@ RUN mkdir /deps
 WORKDIR /deps
 COPY /misc/build-deps-debs.sh build-deps-debs.sh
 COPY Pipfile /root/vula/Pipfile
+COPY /contrib/vula-go /deps/vula-go
 
 RUN bash build-deps-debs.sh
 RUN dpkg -i */dist/*deb
