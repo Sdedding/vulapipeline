@@ -1,256 +1,228 @@
+# test_prefs_views.py
+"""
+GUI-facing tests for ``Prefs`` with zero global side-effects.
+
+The heavy libraries that Prefs depends on are stubbed *temporarily*
+(in a pytest fixture) so they never leak into the rest of the run.
+"""
+from __future__ import annotations
+
+import importlib
 import sys
 import types
 from types import ModuleType, SimpleNamespace
+from typing import Any, Callable, cast
+
+import pytest
 import tkinter as tk
 from unittest.mock import MagicMock
-from importlib import import_module
-from typing import Any, TYPE_CHECKING, cast
-import builtins
 
-# Stub heavy backend and overlay modules before importing Prefs
-backend_stub = ModuleType('vula.backend')
-setattr(backend_stub, 'OrganizeBackend', type('OrganizeBackend', (), {}))
-sys.modules['vula.backend'] = backend_stub
-
-overlay_stub = ModuleType('vula.frontend.overlay')
-setattr(
-    overlay_stub,
-    'PopupMessage',
-    SimpleNamespace(showPopupMessage=lambda *a, **k: None),
-)
-setattr(overlay_stub, 'PeerDetailsOverlay', object)
-setattr(overlay_stub, 'DescriptorOverlay', object)
-setattr(overlay_stub, 'HelpOverlay', object)
-setattr(overlay_stub, 'VerificationKeyOverlay', object)
-sys.modules['vula.frontend.overlay'] = overlay_stub
-
-peers_stub = ModuleType('vula.frontend.view.peers')
-setattr(peers_stub, 'Peers', object)
-sys.modules['vula.frontend.view.peers'] = peers_stub
-
-pkg_resources_stub = types.ModuleType('pkg_resources')
-setattr(pkg_resources_stub, 'resource_filename', lambda *a, **k: '')
-sys.modules['pkg_resources'] = pkg_resources_stub
-
-setattr(builtins, 'pkg_resources', pkg_resources_stub)
-setattr(builtins, 'gettext', import_module('gettext'))
-
-pydbus_stub = types.ModuleType('pydbus')
-setattr(pydbus_stub, 'SystemBus', lambda *a, **k: types.SimpleNamespace())
-sys.modules['pydbus'] = pydbus_stub
-
-yaml_stub = types.ModuleType('yaml')
-setattr(yaml_stub, 'safe_load', lambda *a, **k: {})
-setattr(yaml_stub, 'safe_dump', lambda *a, **k: '')
-sys.modules['yaml'] = yaml_stub
-
-schema_stub = types.ModuleType('schema')
-
-
-class DummySchema:
-    def __init__(self, *a: Any, **k: Any) -> None:
-        pass
-
-
-setattr(schema_stub, 'And', DummySchema)
-setattr(schema_stub, 'Or', DummySchema)
-setattr(schema_stub, 'Schema', DummySchema)
-
-
-class SchemaError(Exception):
-    pass
-
-
-setattr(schema_stub, 'SchemaError', SchemaError)
-setattr(schema_stub, 'Use', lambda f: f)
-setattr(schema_stub, 'Optional', DummySchema)
-setattr(schema_stub, 'Regex', DummySchema)
-sys.modules['schema'] = schema_stub
-
-nacl_stub = types.ModuleType('nacl')
-nacl_exceptions_stub = types.ModuleType('nacl.exceptions')
-setattr(
-    nacl_exceptions_stub,
-    'BadSignatureError',
-    type('BadSignatureError', (), {}),
-)
-nacl_signing_stub = types.ModuleType('nacl.signing')
-setattr(nacl_signing_stub, 'SigningKey', object)
-setattr(nacl_signing_stub, 'VerifyKey', object)
-sys.modules['nacl'] = nacl_stub
-sys.modules['nacl.exceptions'] = nacl_exceptions_stub
-sys.modules['nacl.signing'] = nacl_signing_stub
-
-pyroute2_stub = types.ModuleType('pyroute2')
-IPRoute = type('IPRoute', (), {})
-IPRSocket = type('IPRSocket', (), {})
-WireGuard = type('WireGuard', (), {})
-setattr(pyroute2_stub, 'IPRoute', IPRoute)
-setattr(pyroute2_stub, 'IPRSocket', IPRSocket)
-setattr(pyroute2_stub, 'WireGuard', WireGuard)
-sys.modules['pyroute2'] = pyroute2_stub
-netlink_stub = types.ModuleType('pyroute2.netlink')
-setattr(netlink_stub, 'nla', object)
-sys.modules['pyroute2.netlink'] = netlink_stub
-
-notclick_stub = types.ModuleType('vula.notclick')
-
-
-class DualUse:
-    @staticmethod
-    def object(cls: Any | None = None, *a: Any, **k: Any) -> Any:
-        def wrapper(f: Any) -> Any:
-            return f
-
-        return wrapper
-
-    @staticmethod
-    def method(name: str | None = None, *a: Any, **k: Any) -> Any:
-        def wrapper(f: Any) -> Any:
-            return f
-
-        return wrapper
-
-
-setattr(notclick_stub, 'DualUse', DualUse)
-setattr(notclick_stub, 'blue', lambda s: s)
-setattr(notclick_stub, 'green', lambda s: s)
-setattr(notclick_stub, 'red', lambda s: s)
-setattr(notclick_stub, 'yellow', lambda s: s)
-setattr(notclick_stub, 'bold', lambda s: s)
-setattr(notclick_stub, 'echo_maybepager', lambda s: None)
-setattr(notclick_stub, 'shell_complete_helper', lambda fn: {})
-sys.modules['vula.notclick'] = notclick_stub
-
-wg_stub = types.ModuleType('vula.wg')
-
-
-class Interface:
-    pass
-
-
-setattr(wg_stub, 'Interface', Interface)
-sys.modules['vula.wg'] = wg_stub
-
-verification_stub = types.ModuleType('vula.frontend.view.verification')
-setattr(verification_stub, 'VerificationKeyFrame', object)
-sys.modules['vula.frontend.view.verification'] = verification_stub
-
-descriptor_stub = types.ModuleType('vula.frontend.view.descriptor')
-setattr(descriptor_stub, 'DescriptorFrame', object)
-sys.modules['vula.frontend.view.descriptor'] = descriptor_stub
-
-if TYPE_CHECKING:
-    from vula.frontend.view.prefs import Prefs as PrefsType
-else:
-    PrefsType = Any
-
-Prefs = import_module('vula.frontend.view.prefs').Prefs
-PrefsData = import_module('vula.frontend.dataprovider').Prefs
-
-
-class FakeText(tk.Text):
-    def __init__(self, val: str) -> None:
-        self.val = val
-
-        def dummy(*_a: Any, **_k: Any) -> None:
-            pass
-
-        self.tk = types.SimpleNamespace(call=dummy)  # type: ignore[assignment]
-        self._w = 'widget'
-
-    def get(self, a: Any, b: Any) -> str:  # type: ignore[override]
-        return self.val
-
-    def __getitem__(self, key: str) -> "FakeText":
-        return self
-
-
-class FakeButton(tk.Button):
-    def __init__(self, text: str) -> None:
-        self._text = text
-
-        def dummy(*_a: Any, **_k: Any) -> None:
-            pass
-
-        self.tk = types.SimpleNamespace(call=dummy)  # type: ignore[assignment]
-        self._w = 'widget'
-
-    def __getitem__(self, key: str) -> str:
-        if key == 'text':
-            return self._text
-        raise KeyError(key)
-
+# --------------------------------------------------------------------------- #
+# Constants describing the editable fields we poke at                         #
+# --------------------------------------------------------------------------- #
 
 BOOL_FIELDS = [
-    'pin_new_peers',
-    'accept_nonlocal',
-    'auto_repair',
-    'ephemeral_mode',
-    'accept_default_route',
-    'record_events',
-    'overwrite_unpinned',
+    "pin_new_peers",
+    "accept_nonlocal",
+    "auto_repair",
+    "ephemeral_mode",
+    "accept_default_route",
+    "record_events",
+    "overwrite_unpinned",
 ]
 
 LIST_FIELDS = [
-    'subnets_allowed',
-    'subnets_forbidden',
-    'iface_prefix_allowed',
-    'local_domains',
+    "subnets_allowed",
+    "subnets_forbidden",
+    "iface_prefix_allowed",
+    "local_domains",
 ]
 
-
-def create_prefs_instance() -> PrefsType:
-    prefs = PrefsData(
-        pin_new_peers=False,
-        accept_nonlocal=False,
-        auto_repair=False,
-        subnets_allowed=[],
-        subnets_forbidden=[],
-        iface_prefix_allowed=[],
-        local_domains=[],
-        ephemeral_mode=False,
-        accept_default_route=False,
-        record_events=False,
-        expire_time=60,
-        overwrite_unpinned=False,
-    )
-    inst = cast(PrefsType, Prefs.__new__(Prefs))
-    inst.prefs = prefs
-    inst.data = cast(Any, MagicMock())
-    setattr(inst, 'show_error', lambda res: 0)
-    setattr(inst, 'get_prefs', lambda: None)
-    setattr(inst, 'hide_save_cancel', lambda: None)
-    setattr(inst, 'update_all', lambda: None)
-    inst.show_editable = True
-    return inst
+# --------------------------------------------------------------------------- #
+# Helpers – lightweight widget doubles that work without a running Tk         #
+# --------------------------------------------------------------------------- #
 
 
-def prepare_widgets(
-    inst: PrefsType,
-    bool_values: dict[str, str] | None = None,
-    int_value: str = "60\n",
-) -> None:
-    bool_values = bool_values or {}
-    inst.widgets = {}
-    for name in BOOL_FIELDS:
-        inst.widgets[name] = FakeButton(bool_values.get(name, 'False'))
-    for name in LIST_FIELDS:
-        inst.widgets[name] = FakeText('')
-    inst.widgets['expire_time'] = FakeText(int_value)
+class _FakeText(tk.Text):
+    def __init__(self, value: str) -> None:  # noqa: D401
+        # no call to tk.Text.__init__ – avoids opening a real window
+        self._value = value
+        self.tk = SimpleNamespace(call=lambda *_a, **_k: None)  # type: ignore[attr-defined]
+        self._w = "widget"
+
+    def get(self, *_a: Any, **_k: Any) -> str:  # type: ignore[override]
+        return self._value
+
+    def __getitem__(self, _key: str) -> "_FakeText":  # type: ignore[override]
+        return self
 
 
-def test_save_boolean_pref_updates_value() -> None:
-    inst = create_prefs_instance()
-    prepare_widgets(inst, {'pin_new_peers': 'True'})
+class _FakeButton(tk.Button):
+    def __init__(self, text_val: str) -> None:
+        self._text_val = text_val
+        self.tk = SimpleNamespace(call=lambda *_a, **_k: None)  # type: ignore[attr-defined]
+        self._w = "widget"
+
+    def __getitem__(self, key: str) -> str:  # type: ignore[override]
+        if key == "text":
+            return self._text_val
+        raise KeyError(key)
+
+
+# --------------------------------------------------------------------------- #
+# Pytest fixture that builds *and cleans up* the required stubs               #
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture
+def prefs_factory(monkeypatch: pytest.MonkeyPatch) -> Callable[..., Any]:
+    """
+    Yield a callable that returns a ready-to-use Prefs instance,
+    with all import-time heaviness stubbed only for the lifetime
+    of the calling test.
+    """
+    # --- minimal stubs (only what Prefs touches during import) -------------
+    def _new_mod(name: str) -> ModuleType:
+        mod = ModuleType(name)
+        monkeypatch.setitem(sys.modules, name, mod)
+        return mod
+
+    _backend = _new_mod("vula.backend")
+    _backend.OrganizeBackend = type("OrganizeBackend", (), {})
+
+    _overlay = _new_mod("vula.frontend.overlay")
+    _overlay.PopupMessage = SimpleNamespace(showPopupMessage=lambda *_a, **_k: None)
+    for cls in (
+        "PeerDetailsOverlay",
+        "DescriptorOverlay",
+        "HelpOverlay",
+        "VerificationKeyOverlay",
+    ):
+        setattr(_overlay, cls, object)
+
+    _peers_view = _new_mod("vula.frontend.view.peers")
+    _peers_view.Peers = object
+
+    _pkg_resources = _new_mod("pkg_resources")
+    _pkg_resources.resource_filename = lambda *_a, **_k: ""
+
+    _pydbus = _new_mod("pydbus")
+    _pydbus.SystemBus = lambda *_a, **_k: SimpleNamespace()
+
+    _yaml = _new_mod("yaml")
+    _yaml.safe_load = lambda *_a, **_k: {}
+    _yaml.safe_dump = lambda *_a, **_k: ""
+
+    _schema = _new_mod("schema")
+
+    class _Dummy:
+        def __init__(self, *_a: Any, **_k: Any) -> None: ...
+
+    for attr in ("And", "Or", "Schema", "Optional", "Regex"):
+        setattr(_schema, attr, _Dummy)
+
+    class _SchemaError(Exception): ...
+
+    _schema.SchemaError = _SchemaError
+    _schema.Use = lambda f: f
+
+    _nacl = _new_mod("nacl")
+    _nacl_exc = _new_mod("nacl.exceptions")
+    _nacl_sign = _new_mod("nacl.signing")
+    _nacl_exc.BadSignatureError = type("BadSignatureError", (), {})
+    _nacl_sign.SigningKey = object
+    _nacl_sign.VerifyKey = object
+
+    _pyroute2 = _new_mod("pyroute2")
+    _pyroute2.IPRoute = type("IPRoute", (), {})
+    _pyroute2.IPRSocket = type("IPRSocket", (), {})
+    _pyroute2.WireGuard = type("WireGuard", (), {})
+    _new_mod("pyroute2.netlink").nla = object
+
+    _notclick = _new_mod("vula.notclick")
+
+    class _DualUse:
+        @staticmethod
+        def object(_cls: Any | None = None, *_a: Any, **_k: Any) -> Any:
+            return lambda f: f
+
+        method = object  # same signature – not needed in the tested calls
+
+    _notclick.DualUse = _DualUse
+    for fn in ("blue", "green", "red", "yellow", "bold"):
+        setattr(_notclick, fn, lambda s: s)
+    _notclick.echo_maybepager = lambda *_a, **_k: None
+    _notclick.shell_complete_helper = lambda _fn: {}
+
+    _wg = _new_mod("vula.wg")
+    _wg.Interface = type("Interface", (), {})
+
+    _new_mod("vula.frontend.view.verification").VerificationKeyFrame = object
+    _new_mod("vula.frontend.view.descriptor").DescriptorFrame = object
+
+    # --- import Prefs now that its dependencies are satisfied --------------
+    Prefs = importlib.import_module("vula.frontend.view.prefs").Prefs
+    PrefsData = importlib.import_module("vula.frontend.dataprovider").Prefs
+
+    # --------------------------------------------------------------------- #
+    # Factory returned to the test functions                                #
+    # --------------------------------------------------------------------- #
+
+    def _make_instance(
+        bool_values: dict[str, str] | None = None,
+        int_val: str = "60\n",
+    ) -> Any:
+        """Return a Prefs instance whose widgets are pre-seeded with values."""
+        bool_values = bool_values or {}
+
+        prefs_obj = PrefsData(
+            pin_new_peers=False,
+            accept_nonlocal=False,
+            auto_repair=False,
+            subnets_allowed=[],
+            subnets_forbidden=[],
+            iface_prefix_allowed=[],
+            local_domains=[],
+            ephemeral_mode=False,
+            accept_default_route=False,
+            record_events=False,
+            expire_time=60,
+            overwrite_unpinned=False,
+        )
+
+        inst = cast(Any, Prefs.__new__(Prefs))
+        inst.prefs = prefs_obj
+        inst.data = cast(Any, MagicMock())
+        inst.show_error = lambda *_a, **_k: 0
+        inst.get_prefs = lambda *_a, **_k: None
+        inst.hide_save_cancel = lambda *_a, **_k: None
+        inst.update_all = lambda *_a, **_k: None
+        inst.show_editable = True
+
+        inst.widgets = {}
+        for name in BOOL_FIELDS:
+            inst.widgets[name] = _FakeButton(bool_values.get(name, "False"))
+        for name in LIST_FIELDS:
+            inst.widgets[name] = _FakeText("")
+        inst.widgets["expire_time"] = _FakeText(int_val)
+        return inst
+
+    yield _make_instance
+    # monkeypatch fixture automatically restores the original sys.modules
+
+
+# --------------------------------------------------------------------------- #
+# Actual tests                                                                #
+# --------------------------------------------------------------------------- #
+
+
+def test_save_boolean_pref_updates_value(prefs_factory: Callable[..., Any]) -> None:
+    inst = prefs_factory({"pin_new_peers": "True"})
     inst.save_prefs()
-    cast(MagicMock, inst.data).set_pref.assert_any_call(
-        'pin_new_peers', 'True'
-    )
+    inst.data.set_pref.assert_any_call("pin_new_peers", "True")
 
 
-def test_save_integer_pref_updates_value() -> None:
-    inst = create_prefs_instance()
-    prepare_widgets(inst, int_value='30\n')
+def test_save_integer_pref_updates_value(prefs_factory: Callable[..., Any]) -> None:
+    inst = prefs_factory(int_val="30\n")
     inst.save_prefs()
-    cast(MagicMock, inst.data).set_pref.assert_any_call('expire_time', '30\n')
+    inst.data.set_pref.assert_any_call("expire_time", "30\n")
