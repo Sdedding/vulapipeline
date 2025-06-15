@@ -252,53 +252,6 @@ editable-image: .editable-$(dist)-image-stamp testnet-clean
 	podman commit vula-tmp vula-$(dist)
 	touch $@
 
-.PHONY: gui-image
-gui-image: .gui-image-stamp
-.gui-image-stamp: .editable-$(dist)-image-stamp
-	podman run --replace --name vula-gui-tmp $(podman_args) --detach vula-$(dist) $(systemd_path)
-	podman exec vula-gui-tmp bash /root/vula/misc/install-gui-deps.sh
-	podman exec vula-gui-tmp cp /root/vula/misc/start-gui.sh /usr/local/bin/start-gui.sh
-	podman exec vula-gui-tmp chmod +x /usr/local/bin/start-gui.sh
-	podman exec vula-gui-tmp cp -r /root/vula/misc/linux-desktop/ /usr/share/
-	podman stop vula-gui-tmp
-	podman commit vula-gui-tmp vula-gui-$(dist)
-	podman rm vula-gui-tmp
-	touch $@
-
-.PHONY: gui
-gui: gui-image
-	-podman stop vula-$(dist)-gui
-	-podman rm   vula-$(dist)-gui
-	podman run $(podman_args) \
-	--publish 6080:6080 \
-	--name vula-$(dist)-gui \
-	--hostname $(dist)-gui \
-	--detach $(add_caps) \
-	vula-gui-$(dist) \
-	$(systemd_path)
-	        podman exec --detach vula-$(dist)-gui /usr/local/bin/start-gui.sh
-	        @echo "Open http://localhost:6080/vnc.html in a browser to use the GUI"
-
-.PHONY: test-gui
-
-test-gui: gui-image start
-	-podman stop vula-$(dist)-test-gui
-	-podman rm   vula-$(dist)-test-gui
-	podman run $(podman_args) --network $(NET_NAME) \
-	--publish 6080:6080 \
-	--name vula-$(dist)-test-gui \
-	--hostname $(dist)-test-gui \
-	--detach $(add_caps) \
-	vula-gui-$(dist) \
-	$(systemd_path)
-	podman exec --detach vula-$(dist)-test-gui /usr/local/bin/start-gui.sh
-	@echo "GUI test running at http://localhost:6080/vnc.html"
-
-.PHONY: test-gui-clean
-test-gui-clean:
-	@-podman stop vula-$(dist)-test-gui 2>&1 | grep -v 'no container with name or ID'
-	@-podman rm   vula-$(dist)-test-gui 2>&1 | grep -v 'no container with name or ID'
-
 .PHONY: .create-network
 .create-network:
 	# this network is v4-only (albeit still with fe80), using podman's rfc1918 IPs

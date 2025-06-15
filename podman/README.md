@@ -20,19 +20,6 @@ make
 Running `make` with no arguments will print this README and some configuration
 variables.
 
-## Quick start
-
-The most common targets are:
-
-* `make test` - builds the container image, creates two test containers on the
-  `vula-net` network and runs the automated tests.
-* `make gui` - launches a standalone desktop container with a noVNC server on
-  port `6080`.
-* `make test-gui` - starts the test network like `make test` and also runs the
-  GUI container on port `6080` connected to that network. Remove it with
-  `make test-gui-clean`.
-* `make sh i=2` - open a shell in test container number `2`.
-
 ## Distributions
 
 This Makefile accepts a `dist` argument specifying which Linux distribution to

@@ -9,7 +9,6 @@
 <class 'logging.RootLogger'>
 
 """
-
 from ipaddress import IPv4Address, IPv6Address
 from logging import Logger, getLogger
 from platform import node as hostname
