@@ -27,9 +27,9 @@ _ = gettext.gettext
 
 
 class App(tk.Tk):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self.data = DataProvider()
-        super().__init__(*args, **kwargs)
+        tk.Tk.__init__(self, *args, **kwargs)
 
         self.geometry("{}x{}".format(WIDTH, HEIGHT))
         self.config(bg=BACKGROUND_COLOR)
