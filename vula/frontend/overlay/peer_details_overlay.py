@@ -20,6 +20,7 @@ from vula.frontend.constants import (
 from .popupMessage import PopupMessage
 
 _ = gettext.gettext
+
 from ..style import configure_styles
 
 class PeerDetailsOverlay(tk.Toplevel):
