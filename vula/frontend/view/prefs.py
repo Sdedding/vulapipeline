@@ -1,3 +1,5 @@
+import gettext
+_ = gettext.gettext
 import tkinter as tk
 from tkinter import (
     Button,
@@ -11,6 +13,7 @@ from tkinter import (
 )
 from tkinter.constants import W
 from typing import cast
+
 from vula.frontend import DataProvider, PrefsType
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
@@ -29,7 +32,9 @@ from vula.frontend.constants import (
 from ..style import configure_styles
 from vula.frontend.dataprovider import PrefsTypeKeys
 from vula.frontend.overlay import PopupMessage
-from builtins import _
+
+
+_ = gettext.gettext
 
 
 class Prefs(Frame):
@@ -216,7 +221,7 @@ class Prefs(Frame):
     def get_prefs(self) -> None:
         self.prefs = self.data.get_prefs()
 
-    def toggle(self, event: Event) -> None:
+    def toggle(self, event: Event) -> None:  # type: ignore[type-arg]
         """
         Toggle bool button value
         """
@@ -225,13 +230,13 @@ class Prefs(Frame):
         elif event.widget["text"] == "False":
             event.widget.config(text="True", bg=TEXT_COLOR_GREEN)
 
-    def bool_on_enter(self, event: Event) -> None:
+    def bool_on_enter(self, event: Event) -> None:  # type: ignore[type-arg]
         if event.widget["text"] == "True":
             event.widget.config(bg=TEXT_COLOR_BLACK)
         else:
             event.widget.config(bg=TEXT_COLOR_BLACK)
 
-    def bool_on_leave(self, event: Event) -> None:
+    def bool_on_leave(self, event: Event) -> None:  # type: ignore[type-arg]
         if event.widget["text"] == "True":
             event.widget.config(bg=TEXT_COLOR_GREEN)
         else:
