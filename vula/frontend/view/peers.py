@@ -1,9 +1,8 @@
-import gettext
 import math
 from tkinter import Button, Canvas, Frame, Label, PhotoImage, ttk
 from typing import List, Any
 
-from vula.frontend import DataProvider, PeerType
+import vula.frontend
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
     BACKGROUND_COLOR_CARD,
@@ -23,12 +22,8 @@ from vula.frontend.constants import (
 )
 from vula.frontend.overlay import PeerDetailsOverlay, PopupMessage
 
-_ = gettext.gettext
-
 
 class Peers(Frame):
-    data = DataProvider()
-
     peer_frames: List[Frame] = []
 
     # need to save this numbers for updating the GUI,
@@ -40,9 +35,12 @@ class Peers(Frame):
     peer_page = 1
     peers_per_page = 5
 
-    def __init__(self, parent: Frame) -> None:
+    def __init__(
+        self, parent: Frame, data: vula.frontend.DataProvider
+    ) -> None:
         Frame.__init__(self, parent)
         self.app = parent
+        self.data = data
 
         self.display_header()
         self.display_peers()
@@ -71,7 +69,7 @@ class Peers(Frame):
             fill=TEXT_COLOR_HEADER_2,
             font=(FONT, FONT_SIZE_HEADER_2),
         )
-        self.title_frame.grid(row=0, column=0, pady=(10, 0), sticky="w")
+        self.title_frame.grid(row=0, column=0, pady=20, padx=30, sticky="w")
 
     def display_buttons(self) -> None:
         self.buttons_frame = Frame(
@@ -169,7 +167,7 @@ class Peers(Frame):
             peer_frame = Frame(
                 self.app, bg=BACKGROUND_COLOR, width=400, height=70
             )
-            peer_frame.grid(row=counter, column=0, sticky="w", pady=10)
+            peer_frame.grid(row=counter, column=0, pady=10)
 
             canvas = Canvas(
                 peer_frame,
@@ -247,8 +245,8 @@ class Peers(Frame):
             self.peer_frames.append(peer_frame)
             counter += 1
 
-    def open_details(self, peer: PeerType) -> None:
-        popup = PeerDetailsOverlay(self.app, peer)
+    def open_details(self, peer: vula.frontend.PeerType) -> None:
+        popup = PeerDetailsOverlay(self.app, peer, self.data)
         result = popup.show()
         if result == "delete":
             self.num_peers_after_remove = self.num_peers - 1
