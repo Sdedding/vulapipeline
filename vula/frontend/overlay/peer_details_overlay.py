@@ -463,11 +463,7 @@ class PeerDetailsOverlay(tk.Toplevel):
         )
 
         if box:
-            if not self.data.delete_peer(peer_id):
-                messagebox.showerror(
-                    _("Error"), _("Cannot remove a pinned peer"), parent=self
-                )
-                return
+            self.data.delete_peer(peer_id)
             self.return_value = "delete"
             self.destroy()
 
