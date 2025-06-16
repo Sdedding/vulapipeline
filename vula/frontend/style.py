@@ -3,7 +3,6 @@ from tkinter import ttk
 from .constants import (
     BACKGROUND_COLOR,
     BACKGROUND_COLOR_CARD,
-    TEXT_COLOR_HEADER,
     TEXT_COLOR_WHITE,
     TEXT_COLOR_HEADER_2,
 )
@@ -14,7 +13,8 @@ def configure_styles() -> ttk.Style:
     style = ttk.Style()
     # Use the current theme but ensure our custom styles exist
     style.theme_use(style.theme_use())
-    style.configure("TNotebook", borderwidth=0)
+    style.configure("TNotebook", borderwidth=0,
+                    background=BACKGROUND_COLOR)
     style.configure(
         "Vula.Vertical.TScrollbar",
         gripcount=0,

@@ -1,6 +1,6 @@
 import gettext
 import math
-from tkinter import Button, Canvas, Frame, Label, PhotoImage
+from tkinter import Button, Canvas, Frame, Label, PhotoImage, ttk
 from typing import List, Any
 
 from vula.frontend import DataProvider, PeerType
@@ -50,8 +50,8 @@ class Peers(Frame):
         self.update_loop()
 
     def display_header(self) -> None:
-        self.title_frame = Frame(
-            self.app, bg=BACKGROUND_COLOR, width=400, height=40
+        self.title_frame = ttk.Frame(
+            self.app, style="Vula.TFrame", padding=(10, 10)
         )
         title = Canvas(
             self.title_frame,

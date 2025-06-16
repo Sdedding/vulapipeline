@@ -27,14 +27,12 @@ class VerificationKeyFrame(Frame):
 
     def _build_ui(self) -> None:
         title_frame = ttk.Frame(self, padding=(10, 10), style="Vula.TFrame")
-        text_frame = ttk.Frame(self, padding=(20, 0), style="Vula.TFrame")
         qr_frame: ttk.Frame = ttk.Frame(self, style="Vula.TFrame")
 
         self.grid_rowconfigure(2, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
         title_frame.grid(row=0, sticky="nw")
-        text_frame.grid(row=2, sticky="nsew")
         qr_frame.grid(row=1, sticky="nsew")
 
         ttk.Label(
@@ -51,13 +49,11 @@ class VerificationKeyFrame(Frame):
             ).items()
         }
 
-        text_frame.grid_columnconfigure(0, weight=1)
         self.button_image = PhotoImage(file=IMAGE_BASE_PATH + "clipboard.png")
 
         for desc in descriptors.values():
             vk = str(desc.vk)
             ttk.Label(
-                text_frame,
                 text=vk,
                 style="Vula.TLabel",
                 font=(FONT, FONT_SIZE_TEXT_L),
@@ -67,7 +63,6 @@ class VerificationKeyFrame(Frame):
                 self._add_to_clipboard(key)
 
             ttk.Button(
-                text_frame,
                 image=self.button_image,
                 text="Copy",
                 command=command,
