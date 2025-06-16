@@ -26,7 +26,7 @@ _ = gettext.gettext
 
 
 class App(tk.Tk):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         data = DataProvider()
         tk.Tk.__init__(self, *args, **kwargs)
 
