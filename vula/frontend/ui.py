@@ -1,6 +1,7 @@
 import gettext
 import tkinter as tk
 from tkinter import Button, Canvas, Frame, PhotoImage, ttk
+from typing import Any
 
 from vula import common
 from vula.frontend import DataProvider
@@ -26,7 +27,7 @@ _ = gettext.gettext
 
 
 class App(tk.Tk):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         data = DataProvider()
         tk.Tk.__init__(self, *args, **kwargs)
 
