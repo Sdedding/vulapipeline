@@ -1,5 +1,5 @@
 import math
-from tkinter import Button, Canvas, Frame, Label, PhotoImage
+from tkinter import Button, Canvas, Frame, Label, PhotoImage, ttk
 from typing import List, Any
 
 import vula.frontend
