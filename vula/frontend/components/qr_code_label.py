@@ -9,7 +9,7 @@ qrcode = optional_import("qrcode")
 
 
 class QRCodeLabel(ttk.Label):
-    def __init__(self, parent: tk.Frame, qr_data: str, resize: int) -> None:
+    def __init__(self, parent: ttk.Frame, qr_data: str, resize: int) -> None:
         assert qrcode
         with tempfile.NamedTemporaryFile(
             prefix="vula-ui", suffix="qr-code"

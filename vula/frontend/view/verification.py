@@ -1,5 +1,6 @@
 import json
 from tkinter import Frame, PhotoImage, ttk
+from tkinter.ttk import Frame
 
 from vula.frontend import DataProvider
 from vula.frontend.components import QRCodeLabel
@@ -18,8 +19,8 @@ from ..style import configure_styles
 class VerificationKeyFrame(Frame):
     """Display our verification key inside the main window."""
 
-    def __init__(self, parent: Frame, controller: DataProvider) -> None:
-        super().__init__(parent, bg=BACKGROUND_COLOR)
+    def __init__(self, parent: ttk.Notebook, controller: DataProvider) -> None:
+        super().__init__(parent)
         self.style = configure_styles()
         self.controller = controller
         self._build_ui()
@@ -27,7 +28,7 @@ class VerificationKeyFrame(Frame):
     def _build_ui(self) -> None:
         title_frame = ttk.Frame(self, padding=(10, 10), style="Vula.TFrame")
         text_frame = ttk.Frame(self, padding=(20, 0), style="Vula.TFrame")
-        qr_frame = ttk.Frame(self, style="Vula.TFrame")
+        qr_frame: ttk.Frame = ttk.Frame(self, style="Vula.TFrame")
 
         self.grid_rowconfigure(2, weight=1)
         self.grid_columnconfigure(0, weight=1)
