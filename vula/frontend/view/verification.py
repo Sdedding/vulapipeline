@@ -1,7 +1,7 @@
 import json
 from tkinter import Frame, PhotoImage, ttk
 
-from vula.frontend import Controller
+from vula.frontend import DataProvider
 from vula.frontend.components import QRCodeLabel
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
@@ -18,7 +18,7 @@ from ..style import configure_styles
 class VerificationKeyFrame(Frame):
     """Display our verification key inside the main window."""
 
-    def __init__(self, parent: Frame, controller: Controller) -> None:
+    def __init__(self, parent: Frame, controller: DataProvider) -> None:
         super().__init__(parent, bg=BACKGROUND_COLOR)
         self.style = configure_styles()
         self.controller = controller

@@ -35,7 +35,7 @@ class Peers(Frame):
     peer_page = 1
     peers_per_page = 5
 
-    def __init__(self, parent: Frame, data: vula.frontend.Controller) -> None:
+    def __init__(self, parent: Frame, data: vula.frontend.DataProvider) -> None:
         Frame.__init__(self, parent)
         self.app = parent
         self.data = data
@@ -183,10 +183,10 @@ class Peers(Frame):
                 canvas, 0, 0, 400, 70, r=30, fill=BACKGROUND_COLOR_CARD
             )
 
-            if peer.name:
-                name = peer.name
+            if peer["name"]:
+                name = peer["name"]
             else:
-                name = peer.other_names or ""
+                name = peer["other_names"] or ""
 
             # Peer name
             canvas.create_text(
@@ -203,14 +203,14 @@ class Peers(Frame):
                 20.0,
                 40.0,
                 anchor="nw",
-                text=peer.endpoint or "",
+                text=peer["endpoint"] or "",
                 fill=TEXT_COLOR_GREY,
                 font=(FONT, FONT_SIZE_TEXT_XS),
             )
 
             # Status labels
-            if peer.status is not None:
-                if "enabled" in peer.status:
+            if peer["status"] is not None:
+                if "enabled" in peer["status"]:
                     canvas.create_text(
                         205.0,
                         40.0,
@@ -219,7 +219,7 @@ class Peers(Frame):
                         fill=TEXT_COLOR_YELLOW,
                         font=(FONT, FONT_SIZE_TEXT_M),
                     )
-                if "unpinned" not in peer.status:
+                if "unpinned" not in peer["status"]:
                     canvas.create_text(
                         270.0,
                         40.0,
@@ -228,7 +228,7 @@ class Peers(Frame):
                         fill=TEXT_COLOR_PURPLE,
                         font=(FONT, FONT_SIZE_TEXT_M),
                     )
-                if "unverified" not in peer.status:
+                if "unverified" not in peer["status"]:
                     canvas.create_text(
                         325.0,
                         40.0,
@@ -243,7 +243,7 @@ class Peers(Frame):
             self.peer_frames.append(peer_frame)
             counter += 1
 
-    def open_details(self, peer: vula.frontend.Peer) -> None:
+    def open_details(self, peer: vula.frontend.PeerType) -> None:
         popup = PeerDetailsOverlay(self.app, peer, self.data)
         result = popup.show()
         if result == "delete":

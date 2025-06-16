@@ -1,24 +1,23 @@
-from __future__ import annotations
+from typing import List, TypedDict, Literal, cast, Optional, Any
 
-from dataclasses import dataclass
-from typing import List, Literal, Optional, TypedDict, cast, Any
+import pydbus
+import yaml
 
-from logging import getLogger
+from vula.common import escape_ansi
+from vula.constants import _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
+from vula.organize import Organize
 
-from vula.frontend.backend import OrganizeBackend
 
-
-@dataclass
-class Peer:
-    name: Optional[str]
-    id: Optional[str]
-    other_names: Optional[str]
-    status: Optional[str]
-    endpoint: Optional[str]
-    allowed_ips: Optional[str]
-    latest_signature: Optional[str]
-    latest_handshake: Optional[str]
-    wg_pubkey: Optional[str]
+class PeerType(TypedDict):
+    name: str
+    id: str
+    other_names: str
+    status: str
+    endpoint: str
+    allowed_ips: str
+    latest_signature: str
+    latest_handshake: str
+    wg_pubkey: str
 
 
 class StatusType(TypedDict):
@@ -27,8 +26,7 @@ class StatusType(TypedDict):
     organize: str
 
 
-@dataclass
-class Prefs:
+class PrefsType(TypedDict):
     pin_new_peers: bool
     accept_nonlocal: bool
     auto_repair: bool
@@ -41,47 +39,6 @@ class Prefs:
     record_events: bool
     expire_time: int
     overwrite_unpinned: bool
-
-
-def peer_from_dict(data: dict[str, Optional[str]]) -> Peer:
-    """Convert a raw dict from organize into :class:`Peer`.
-    :type data: dict
-    """
-    return Peer(
-        name=data.get("name"),
-        id=data.get("id"),
-        other_names=data.get("other_names"),
-        status=data.get("status"),
-        endpoint=data.get("endpoint"),
-        allowed_ips=data.get("allowed_ips"),
-        latest_signature=data.get("latest_signature"),
-        latest_handshake=data.get("latest_handshake"),
-        wg_pubkey=data.get("wg_pubkey"),
-    )
-
-
-def prefs_from_dict(data: dict[str, bool | list[str] | int]) -> Prefs:
-    """Convert a raw dict from organize into :class:`Prefs`.
-    :type data: dict[str, bool | list[str] | int]
-    """
-    return Prefs(
-        pin_new_peers=cast(bool, data.get("pin_new_peers", False)),
-        accept_nonlocal=cast(bool, data.get("accept_nonlocal", False)),
-        auto_repair=cast(bool, data.get("auto_repair", False)),
-        subnets_allowed=cast(list[str], data.get("subnets_allowed", [])),
-        subnets_forbidden=cast(list[str], data.get("subnets_forbidden", [])),
-        iface_prefix_allowed=cast(
-            list[str], data.get("iface_prefix_allowed", [])
-        ),
-        local_domains=cast(list[str], data.get("local_domains", [])),
-        ephemeral_mode=cast(bool, data.get("ephemeral_mode", False)),
-        accept_default_route=cast(
-            bool, data.get("accept_default_route", False)
-        ),
-        record_events=cast(bool, data.get("record_events", False)),
-        expire_time=cast(int, data.get("expire_time", 0)),
-        overwrite_unpinned=cast(bool, data.get("overwrite_unpinned", False)),
-    )
 
 
 PrefsTypeKeys = Literal[
@@ -101,34 +58,86 @@ PrefsTypeKeys = Literal[
 
 
 class DataProvider:
-    def __init__(self) -> None:
-        self.log = getLogger(__name__)
-        self.backend = OrganizeBackend()
+    def get_peers(self) -> List[PeerType]:
+        organize = pydbus.SystemBus().get(
+            _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
+        )
 
-    def get_peers(self) -> List[Peer]:
-        ids = self.backend.peer_ids("enabled")
-        peers: List[Peer] = []
-        for peer_id in ids:
-            info = self.backend.get_peer_info(peer_id)
-            peers.append(peer_from_dict(info))
+        # Get all peer ids from the dbus
+        ids = organize.peer_ids("enabled")
+
+        peers: List[PeerType] = []
+
+        # Loop over all ids in the list
+        for id in ids:
+            # Create empty dict for peer
+            peer_dict: dict[str, Optional[str]] = {
+                "name": None,
+                "id": None,
+                "other_names": None,
+                "status": None,
+                "endpoint": None,
+                "allowed_ips": None,
+                "latest_signature": None,
+                "latest_handshake": None,
+                "wg_pubkey": None,
+            }
+
+            # Fill in the data
+            peer_raw = organize.show_peer(id)
+            peer_clear = escape_ansi(peer_raw)
+            peer_lines = peer_clear.split("\n")
+
+            peer_dict["name"] = peer_lines[0].lstrip().split(": ")[1]
+            peer_dict["id"] = peer_lines[1].lstrip().split(": ")[1]
+            if "other names" in peer_lines[2]:
+                peer_dict["other_names"] = (
+                    peer_lines[2].lstrip().split(": ")[1]
+                )
+                peer_dict["status"] = peer_lines[3].lstrip().split(": ")[1]
+                peer_dict["endpoint"] = peer_lines[4].lstrip().split(": ")[1]
+                peer_dict["allowed_ips"] = (
+                    peer_lines[5].lstrip().split(": ")[1]
+                )
+                peer_dict["latest_signature"] = (
+                    peer_lines[6].lstrip().split(": ")[1]
+                )
+                peer_dict["latest_handshake"] = (
+                    peer_lines[7].lstrip().split(": ")[1]
+                )
+                peer_dict["wg_pubkey"] = peer_lines[8].lstrip().split(": ")[1]
+            else:
+                peer_dict["status"] = peer_lines[2].lstrip().split(": ")[1]
+                peer_dict["endpoint"] = peer_lines[3].lstrip().split(": ")[1]
+                peer_dict["allowed_ips"] = (
+                    peer_lines[4].lstrip().split(": ")[1]
+                )
+                peer_dict["latest_signature"] = (
+                    peer_lines[5].lstrip().split(": ")[1]
+                )
+                peer_dict["latest_handshake"] = (
+                    peer_lines[6].lstrip().split(": ")[1]
+                )
+                peer_dict["wg_pubkey"] = peer_lines[7].lstrip().split(": ")[1]
+
+            peers.append(cast(PeerType, peer_dict))
+
         return peers
 
-    def get_prefs(self) -> Prefs:
-        return prefs_from_dict(self.backend.get_prefs())
+    def get_prefs(self) -> PrefsType:
+        organize = pydbus.SystemBus().get(
+            _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
+        )
 
-    def get_peer(self, peer_id: str) -> Optional[Peer]:
-        """Return a single peer by id or ``None`` if unavailable."""
-        info = self.backend.get_peer_info(peer_id)
-        return peer_from_dict(info) if info else None
+        # Get the data from the organize dbus
+        data = organize.show_prefs()
+        items: PrefsType = yaml.safe_load(data)
 
-    def get_status(self) -> Optional[StatusType] | None:
+        return items
+
+    def get_status(self) -> Optional[StatusType]:
         # Fetch the data from the systemd dbus
-        if not self.backend.connect(service=False):
-            return None
-        bus = self.backend.bus
-        # Explicitly retrieve the systemd manager object to avoid interface
-        # resolution issues when calling methods such as ``GetUnit``.
-        systemd = bus.get(".systemd1", "/org/freedesktop/systemd1")
+        systemd = pydbus.SystemBus().get(".systemd1", "/")
 
         # Create an empty dict for the status
         status = StatusType(publish="", discover="", organize="")
@@ -139,45 +148,60 @@ class DataProvider:
             # Template string for service name
             unit_name = "vula-%s.service" % (name,)
             try:
-                unit = bus.get(".systemd1", systemd.GetUnit(unit_name))
+                unit = pydbus.SystemBus().get(
+                    ".systemd1", systemd.GetUnit(unit_name)
+                )
                 status[name] = unit.ActiveState
             except Exception as ex:
-                self.log.error("Failed to get unit %s: %s", unit_name, ex)
+                print(ex)
                 return None
 
         return status
 
     def our_latest_descriptors(self) -> str:
-        return self.backend.our_latest_descriptors()
+        organize: Organize = pydbus.SystemBus().get(
+            _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
+        )
+        return organize.our_latest_descriptors()
 
-    def delete_peer(self, peer_vk: Any) -> None:
-        self.backend.remove_peer(peer_vk)
+    def delete_peer(self, peer_vk: str) -> None:
+        organize: Organize = pydbus.SystemBus().get(
+            _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
+        )
+        organize.remove_peer(peer_vk)
 
-    def rename_peer(self, peer_vk: Any, name: str) -> None:
-        self.backend.rename_peer(peer_vk, name)
+    def rename_peer(self, peer_vk: str, name: str) -> None:
+        organize: Organize = pydbus.SystemBus().get(
+            _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
+        )
+        organize.set_peer(peer_vk, ["petname"], name)
 
-    def pin_and_verify(self, peer_vk: Any, peer_name: Any) -> None:
-        self.backend.verify_and_pin_peer(peer_vk, peer_name)
+    def pin_and_verify(self, peer_vk: str, peer_name: str) -> None:
+        organize: Organize = pydbus.SystemBus().get(
+            _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
+        )
+        organize.verify_and_pin_peer(peer_vk, peer_name)
 
     def add_peer(self, peer_vk: str, ip: str) -> None:
-        self.backend.add_peer_ip(peer_vk, ip)
+        organize: Organize = pydbus.SystemBus().get(
+            _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
+        )
+        organize.peer_addr_add(peer_vk, ip)
 
-    def set_pref(self, pref: str, value: str) -> Optional[str]:
-        return self.backend.set_pref(pref, value)
+    def set_pref(self, pref: str, value: Any) -> str:
+        organize: Organize = pydbus.SystemBus().get(
+            _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
+        )
+        return organize.set_pref(pref, value)
 
-    def add_pref(self, pref: str, value: str) -> Optional[str]:
-        return self.backend.add_pref(pref, value)
+    def add_pref(self, pref: str, value: Any) -> str:
+        organize: Organize = pydbus.SystemBus().get(
+            _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
+        )
+        return organize.add_pref(pref, value)
 
-    def remove_pref(self, pref: str, value: str) -> None:
-        self.backend.remove_pref(pref, value)
-
-
-_provider_instance: Optional[DataProvider] = None
-
-
-def get_provider() -> DataProvider:
-    """Return a singleton instance of :class:`DataProvider`."""
-    global _provider_instance
-    if _provider_instance is None:
-        _provider_instance = DataProvider()
-    return _provider_instance
+    def remove_pref(self, pref: str, value: Any) -> str:
+        organize: Organize = pydbus.SystemBus().get(
+            _ORGANIZE_DBUS_NAME, _ORGANIZE_DBUS_PATH
+        )
+        return organize.remove_pref(pref, value)

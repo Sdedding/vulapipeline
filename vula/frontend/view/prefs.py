@@ -11,9 +11,7 @@ from tkinter import (
 )
 from tkinter.constants import W
 from typing import cast
-from dataclasses import asdict
-
-from vula.frontend import Controller, Prefs as PrefsData
+from vula.frontend import DataProvider, PrefsType
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
     BACKGROUND_COLOR_CARD,
@@ -35,9 +33,9 @@ from builtins import _
 
 
 class Prefs(Frame):
-    def __init__(self, frame: Frame, data: Controller) -> None:
+    def __init__(self, frame: Frame, data: DataProvider) -> None:
         self.show_editable: bool = False
-        self.prefs: PrefsData
+        self.prefs: PrefsType
         self.widgets: dict[str, Text | Button] = {}
         self.frame: Frame = frame
         self.data = data
@@ -240,7 +238,7 @@ class Prefs(Frame):
             event.widget.config(bg=TEXT_COLOR_RED)
 
     def save_prefs(self) -> None:
-        prefs_dict = asdict(self.prefs)
+        prefs_dict = self.prefs
         for pref, values in prefs_dict.items():
             _pref: PrefsTypeKeys = cast(PrefsTypeKeys, pref)
             widget_type = self.widgets[pref]
@@ -334,7 +332,7 @@ class Prefs(Frame):
         counter: int = 1
 
         # Loop over all preferences and display them
-        prefs_dict = asdict(self.prefs)
+        prefs_dict = self.prefs
         for pref, value in prefs_dict.items():
             # show preference descriptions on the left
             pref_label = Label(

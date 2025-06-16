@@ -1,7 +1,8 @@
 import tkinter as tk
 from tkinter import Button, Canvas, Frame, PhotoImage, ttk
 
-from vula.frontend import Controller
+from vula.frontend import DataProvider
+from vula import common
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
     FONT,
@@ -24,7 +25,7 @@ from builtins import _
 
 class App(tk.Tk):
     def __init__(self, *args, **kwargs) -> None:
-        self.controller = Controller()
+        self.data = DataProvider()
         super().__init__(*args, **kwargs)
 
         self.geometry("{}x{}".format(WIDTH, HEIGHT))
@@ -61,9 +62,9 @@ class App(tk.Tk):
         peers_frame = Frame(self.notebook, bg=BACKGROUND_COLOR)
         pref_frame = Frame(self.notebook, bg=BACKGROUND_COLOR)
         verification_frame = VerificationKeyFrame(
-            self.notebook, self.controller
+            self.notebook, self.data
         )
-        descriptor_frame = DescriptorFrame(self.notebook, self.controller)
+        descriptor_frame = DescriptorFrame(self.notebook, self.data)
 
         self.notebook.add(peers_frame, text="Peers")
         self.notebook.add(pref_frame, text="Settings")
@@ -77,8 +78,8 @@ class App(tk.Tk):
         verification_frame.grid_columnconfigure(0, weight=1)
         descriptor_frame.grid_columnconfigure(0, weight=1)
 
-        self.peers_new = Peers(peers_frame, self.controller)
-        self.prefs = Prefs(pref_frame, self.controller)
+        self.peers_new = Peers(peers_frame, self.data)
+        self.prefs = Prefs(pref_frame, self.data)
 
         footer_frame.grid_rowconfigure(1, weight=1)
         footer_frame.grid_columnconfigure(1, weight=1)
@@ -130,7 +131,7 @@ class App(tk.Tk):
         desc_button.grid(row=1, column=1)
 
         # Get the status of the different vula processes
-        state = self.controller.get_status()
+        state = self.data.get_status()
 
         # @TODO: The case where state is None might have to be handled
         # @TODO: differently
@@ -221,13 +222,13 @@ class App(tk.Tk):
         btn_help.grid(row=0, column=4, pady=(20, 20), padx=(20, 20))
 
     def rediscover(self) -> None:
-        self.controller.rediscover()
+        common.organize_dbus_if_active().rediscover()
 
     def release_gateway(self) -> None:
-        self.controller.release_gateway()
+        common.organize_dbus_if_active().release_gateway()
 
     def repair(self) -> None:
-        self.controller.repair()
+        common.organize_dbus_if_active().sync(True)
 
     def open_vk_qr_code(self) -> None:
         self.notebook.select(self.verification_frame)

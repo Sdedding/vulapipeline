@@ -37,14 +37,7 @@ from .constants import (
     TEXT_COLOR_YELLOW,
     WIDTH,
 )
-from .dataprovider import (
-    DataProvider,
-    Peer,
-    Prefs,
-    StatusType,
-    get_provider,
-)
-from .controller import Controller
+from .dataprovider import DataProvider, PeerType, PrefsType, StatusType
 
 # Install UI translations once when the frontend package is imported.
 locale_path = pkg_resources.resource_filename('vula', 'locale')
@@ -81,9 +74,8 @@ __all__ = [
     "TEXT_COLOR_YELLOW",
     "WIDTH",
     "DataProvider",
-    "Controller",
-    "Peer",
-    "Prefs",
+    "PeerType",
+    "PrefsType",
     "StatusType",
     "locale_path",
     "lang_translations",
