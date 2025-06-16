@@ -159,7 +159,7 @@ class App(tk.Tk):
         self.button_image_rediscover = PhotoImage(
             file=IMAGE_BASE_PATH + 'rediscover.png'
         )
-        btn_rediscover = Button(
+        btn_Rediscover = Button(
             bottom_frame,
             text="Rediscover",
             image=self.button_image_rediscover,
@@ -174,7 +174,7 @@ class App(tk.Tk):
         self.button_image_repair = PhotoImage(
             file=IMAGE_BASE_PATH + 'repair.png'
         )
-        btn_repair = Button(
+        btn_Repair = Button(
             bottom_frame,
             text="Repair",
             image=self.button_image_repair,
@@ -189,7 +189,7 @@ class App(tk.Tk):
         self.button_image_gate = PhotoImage(
             file=IMAGE_BASE_PATH + 'release_gateway.png'
         )
-        btn_release_gateway = Button(
+        btn_Release_Gateway = Button(
             bottom_frame,
             text="Release Gateway",
             image=self.button_image_gate,
@@ -202,14 +202,14 @@ class App(tk.Tk):
             activeforeground=BACKGROUND_COLOR,
         )
 
-        info_help = HelpOverlay(self)
+        info_Help = HelpOverlay(self)
 
         self.button_image_help = PhotoImage(file=IMAGE_BASE_PATH + 'help.png')
-        btn_help = Button(
+        btn_Help = Button(
             bottom_frame,
             text="Help",
             image=self.button_image_help,
-            command=lambda: info_help.openNewWindow(),
+            command=lambda: info_Help.openNewWindow(),
             borderwidth=0,
             highlightthickness=0,
             relief="sunken",
@@ -217,10 +217,10 @@ class App(tk.Tk):
             activebackground=BACKGROUND_COLOR,
             activeforeground=BACKGROUND_COLOR,
         )
-        btn_rediscover.grid(row=0, column=1, pady=(20, 20), padx=(40, 20))
-        btn_repair.grid(row=0, column=2, pady=(20, 20), padx=(20, 20))
-        btn_release_gateway.grid(row=0, column=3, pady=(20, 20), padx=(20, 20))
-        btn_help.grid(row=0, column=4, pady=(20, 20), padx=(20, 20))
+        btn_Rediscover.grid(row=0, column=1, pady=(20, 20), padx=(40, 20))
+        btn_Repair.grid(row=0, column=2, pady=(20, 20), padx=(20, 20))
+        btn_Release_Gateway.grid(row=0, column=3, pady=(20, 20), padx=(20, 20))
+        btn_Help.grid(row=0, column=4, pady=(20, 20), padx=(20, 20))
 
     def rediscover(self) -> None:
         common.organize_dbus_if_active().rediscover()

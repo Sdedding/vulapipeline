@@ -53,8 +53,6 @@ class DescriptorFrame(ttk.Notebook):
         }
 
 
-
-
         for ip, desc in descriptors.items():
             ip = str(desc.v4a)
             ttk.Label(
