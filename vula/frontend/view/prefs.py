@@ -126,6 +126,18 @@ class Prefs(Frame):
         self.pref_content_frame.bind_all(
             "<Button-5>", lambda e: self.pref_canvas.yview_scroll(1, "units")
         )
+        self.pref_content_frame.bind_all(
+            "<MouseWheel>",
+            lambda e: self.pref_canvas.yview_scroll(
+                -1 * (e.delta // 120), "units"
+            ),
+        )
+        self.pref_content_frame.bind_all(
+            "<Button-4>", lambda e: self.pref_canvas.yview_scroll(-1, "units")
+        )
+        self.pref_content_frame.bind_all(
+            "<Button-5>", lambda e: self.pref_canvas.yview_scroll(1, "units")
+        )
         self.top_frame.pack(
             fill="both", expand=True, padx=(0, 50), pady=(50, 0), side="top"
         )
