@@ -28,7 +28,7 @@ _ = gettext.gettext
 
 class App(tk.Tk):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        data = DataProvider()
+        self.data = DataProvider()
         tk.Tk.__init__(self, *args, **kwargs)
 
         self.geometry("{}x{}".format(WIDTH, HEIGHT))
