@@ -23,6 +23,7 @@ _ = gettext.gettext
 
 from ..style import configure_styles
 
+
 class PeerDetailsOverlay(tk.Toplevel):
     def __init__(
         self, parent: tk.Frame, peer: PeerType, data: DataProvider
