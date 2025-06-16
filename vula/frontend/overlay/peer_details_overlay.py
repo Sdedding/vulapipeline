@@ -20,15 +20,16 @@ from vula.frontend.constants import (
 from .popupMessage import PopupMessage
 
 _ = gettext.gettext
-
+from ..style import configure_styles
 
 class PeerDetailsOverlay(tk.Toplevel):
-    data = DataProvider()
-
-    def __init__(self, parent: tk.Frame, peer: PeerType) -> None:
+    def __init__(
+        self, parent: tk.Frame, peer: PeerType, data: DataProvider
+    ) -> None:
         tk.Toplevel.__init__(self, parent)
         self.app = parent
         self.peer = peer
+        self.data = data
 
         self.id = peer["id"]
         if peer["name"]:
@@ -64,10 +65,13 @@ class PeerDetailsOverlay(tk.Toplevel):
             relief="ridge",
         )
 
+        self.style = configure_styles()
+
         self.yscrollbar = ttk.Scrollbar(
             self.top_frame,
             orient="vertical",
             command=self.top_canvas.yview,
+            style="Vula.Vertical.TScrollbar",
         )
 
         frame = tk.Frame(
@@ -458,7 +462,11 @@ class PeerDetailsOverlay(tk.Toplevel):
         )
 
         if box:
-            self.data.delete_peer(peer_id)
+            if not self.data.delete_peer(peer_id):
+                messagebox.showerror(
+                    _("Error"), _("Cannot remove a pinned peer"), parent=self
+                )
+                return
             self.return_value = "delete"
             self.destroy()
 

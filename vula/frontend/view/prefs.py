@@ -1,4 +1,3 @@
-import gettext
 import tkinter as tk
 from tkinter import (
     Button,
@@ -7,12 +6,11 @@ from tkinter import (
     Frame,
     Label,
     PhotoImage,
-    Scrollbar,
     Text,
+    ttk,
 )
 from tkinter.constants import W
 from typing import cast
-
 from vula.frontend import DataProvider, PrefsType
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
@@ -28,20 +26,19 @@ from vula.frontend.constants import (
     TEXT_COLOR_RED,
     TEXT_COLOR_WHITE,
 )
+from ..style import configure_styles
 from vula.frontend.dataprovider import PrefsTypeKeys
 from vula.frontend.overlay import PopupMessage
-
-_ = gettext.gettext
+from builtins import _
 
 
 class Prefs(Frame):
-    data = DataProvider()
-
-    def __init__(self, frame: Frame) -> None:
+    def __init__(self, frame: Frame, data: DataProvider) -> None:
         self.show_editable: bool = False
         self.prefs: PrefsType
         self.widgets: dict[str, Text | Button] = {}
         self.frame: Frame = frame
+        self.data = data
 
         self.display_header()
         self.display_frames()
@@ -83,11 +80,12 @@ class Prefs(Frame):
             highlightthickness=1,
         )
 
-        self.yscrollbar = Scrollbar(
+        self.style = configure_styles()
+        self.yscrollbar = ttk.Scrollbar(
             self.top_frame,
             orient="vertical",
             command=self.pref_canvas.yview,
-            relief="flat",
+            style="Vula.Vertical.TScrollbar",
         )
         self.pref_content_frame = Frame(
             self.pref_canvas,
@@ -110,10 +108,34 @@ class Prefs(Frame):
                 scrollregion=self.pref_canvas.bbox('all')
             ),
         )
+
         self.pref_canvas.create_window(
             (0, 0), window=self.pref_content_frame, anchor="nw"
         )
-
+        self.pref_content_frame.bind_all(
+            "<MouseWheel>",
+            lambda e: self.pref_canvas.yview_scroll(
+                -1 * (e.delta // 120), "units"
+            ),
+        )
+        self.pref_content_frame.bind_all(
+            "<Button-4>", lambda e: self.pref_canvas.yview_scroll(-1, "units")
+        )
+        self.pref_content_frame.bind_all(
+            "<Button-5>", lambda e: self.pref_canvas.yview_scroll(1, "units")
+        )
+        self.pref_content_frame.bind_all(
+            "<MouseWheel>",
+            lambda e: self.pref_canvas.yview_scroll(
+                -1 * (e.delta // 120), "units"
+            ),
+        )
+        self.pref_content_frame.bind_all(
+            "<Button-4>", lambda e: self.pref_canvas.yview_scroll(-1, "units")
+        )
+        self.pref_content_frame.bind_all(
+            "<Button-5>", lambda e: self.pref_canvas.yview_scroll(1, "units")
+        )
         self.top_frame.pack(
             fill="both", expand=True, padx=(0, 50), pady=(50, 0), side="top"
         )
@@ -165,7 +187,7 @@ class Prefs(Frame):
             activebackground=BACKGROUND_COLOR,
             activeforeground=BACKGROUND_COLOR,
         )
-        self.btn_edit.pack(side="left", padx=10, pady=10)
+        self.btn_edit.pack(side="right", padx=10, pady=10)
 
     def display_header(self) -> None:
         self.title_frame = Frame(
@@ -189,12 +211,12 @@ class Prefs(Frame):
             fill=TEXT_COLOR_HEADER_2,
             font=(FONT, FONT_SIZE_HEADER_2),
         )
-        self.title_frame.grid(row=0, column=0, pady=(10, 0), sticky="w")
+        self.title_frame.pack(pady=(10, 0), anchor="w")
 
     def get_prefs(self) -> None:
         self.prefs = self.data.get_prefs()
 
-    def toggle(self, event: Event) -> None:  # type: ignore[type-arg]
+    def toggle(self, event: Event) -> None:
         """
         Toggle bool button value
         """
@@ -203,32 +225,32 @@ class Prefs(Frame):
         elif event.widget["text"] == "False":
             event.widget.config(text="True", bg=TEXT_COLOR_GREEN)
 
-    def bool_on_enter(self, event: Event) -> None:  # type: ignore[type-arg]
+    def bool_on_enter(self, event: Event) -> None:
         if event.widget["text"] == "True":
             event.widget.config(bg=TEXT_COLOR_BLACK)
         else:
             event.widget.config(bg=TEXT_COLOR_BLACK)
 
-    def bool_on_leave(self, event: Event) -> None:  # type: ignore[type-arg]
+    def bool_on_leave(self, event: Event) -> None:
         if event.widget["text"] == "True":
             event.widget.config(bg=TEXT_COLOR_GREEN)
         else:
             event.widget.config(bg=TEXT_COLOR_RED)
 
     def save_prefs(self) -> None:
-        for pref, values in self.prefs.items():
+        prefs_dict = self.prefs
+        for pref, values in prefs_dict.items():
             _pref: PrefsTypeKeys = cast(PrefsTypeKeys, pref)
             widget_type = self.widgets[pref]
-            if isinstance(widget_type, Text):
+            if isinstance(widget_type, (Text, Button)):
                 widget = widget_type
                 if isinstance(values, list):
                     current_list = widget.get("1.0", "end").split()
                     for value in current_list:
-                        if isinstance(value, list):
-                            if value not in self.prefs[_pref]:
-                                res = self.data.add_pref(pref, value)
-                                if self.show_error(res) == 1:
-                                    return
+                        if value not in prefs_dict[_pref]:
+                            res = self.data.add_pref(pref, value)
+                            if self.show_error(res) == 1:
+                                return
                     for value in values:
                         if value not in current_list:
                             res = self.data.remove_pref(pref, value)
@@ -243,7 +265,7 @@ class Prefs(Frame):
                         return
                 # int based prefs
                 elif isinstance(values, int):
-                    int_value = str(widget[pref].get("1.0", "end"))
+                    int_value = str(widget.get("1.0", "end"))
                     res = self.data.set_pref(pref, int_value)
                     if self.show_error(res) == 1:
                         return
@@ -297,11 +319,11 @@ class Prefs(Frame):
 
     def show_save_cancel(self) -> None:
         self.btn_edit.pack_forget()
-        self.btn_cancel.pack(side="left", padx=10, pady=10)
-        self.btn_save.pack(side="left", padx=10, pady=10)
+        self.btn_save.pack(side="right", padx=10, pady=10)
+        self.btn_cancel.pack(side="right", padx=10, pady=10)
 
     def hide_save_cancel(self) -> None:
-        self.btn_edit.pack(side="left", padx=10, pady=10)
+        self.btn_edit.pack(side="right", padx=10, pady=10)
         self.btn_save.pack_forget()
         self.btn_cancel.pack_forget()
 
@@ -310,7 +332,8 @@ class Prefs(Frame):
         counter: int = 1
 
         # Loop over all preferences and display them
-        for pref, value in self.prefs.items():
+        prefs_dict = self.prefs
+        for pref, value in prefs_dict.items():
             # show preference descriptions on the left
             pref_label = Label(
                 self.pref_content_frame,
