@@ -1,10 +1,3 @@
-"""Frontend package for the Vula GUI.
-
-The call to ``gettext.translation(...).install()`` below installs the
-``_`` function into :mod:`builtins`, so submodules can use ``_()`` directly
-without importing ``gettext``.
-"""
-
 import gettext
 
 import pkg_resources
@@ -39,7 +32,6 @@ from .constants import (
 )
 from .dataprovider import DataProvider, PeerType, PrefsType, StatusType
 
-# Install UI translations once when the frontend package is imported.
 locale_path = pkg_resources.resource_filename('vula', 'locale')
 lang_translations = gettext.translation(
     domain="ui", localedir=locale_path, fallback=True
