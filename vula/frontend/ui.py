@@ -70,14 +70,14 @@ class App(tk.Tk):
         self.notebook.add(pref_frame, text="Settings")
         self.notebook.add(verification_frame, text="Verification")
         self.notebook.add(descriptor_frame, text="Descriptor")
-        self.verification_frame = verification_frame
-        self.descriptor_frame = descriptor_frame
 
         peers_frame.grid_columnconfigure(0, weight=1)
         pref_frame.grid_columnconfigure(0, weight=1)
         verification_frame.grid_columnconfigure(0, weight=1)
         descriptor_frame.grid_columnconfigure(0, weight=1)
 
+        self.verification_frame = verification_frame
+        self.descriptor_frame = descriptor_frame
         self.peers_new = Peers(peers_frame, self.data)
         self.prefs = Prefs(pref_frame, self.data)
 
