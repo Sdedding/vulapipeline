@@ -1,3 +1,4 @@
+import gettext
 import math
 from tkinter import Button, Canvas, Frame, Label, PhotoImage, ttk
 from typing import List, Any
@@ -21,6 +22,8 @@ from vula.frontend.constants import (
     TEXT_COLOR_YELLOW,
 )
 from vula.frontend.overlay import PeerDetailsOverlay, PopupMessage
+
+_ = gettext.gettext
 
 
 class Peers(Frame):
