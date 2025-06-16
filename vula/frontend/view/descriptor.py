@@ -34,7 +34,7 @@ class DescriptorFrame(ttk.Notebook):
         self.grid_columnconfigure(0, weight=1)
 
         title_frame.grid(row=0, sticky="nsew")
-        text_frame.grid(row=1, sticky="nw")
+        text_frame.grid(row=1, sticky="nwew")
         qr_frame.grid(row=2, sticky="nsew")
 
         ttk.Label(
@@ -58,7 +58,7 @@ class DescriptorFrame(ttk.Notebook):
             ip = str(desc.v4a)
             ttk.Label(
                 text_frame,
-                text= ip,
+                text=str(desc) + " (" + ip + ")",
                 style="Vula.TLabel",
                 font=(FONT, FONT_SIZE_TEXT_XXL),
             ).pack()
