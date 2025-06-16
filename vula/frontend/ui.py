@@ -33,11 +33,14 @@ class App(tk.Tk):
         # create all of the main containers
 
         content_frame = Frame(
-            self, bg=BACKGROUND_COLOR, width=1200, height=600, padx=3, pady=3)
+            self, bg=BACKGROUND_COLOR, width=1200, height=600, padx=3, pady=3
+        )
         footer_frame = Frame(
-            self, bg=BACKGROUND_COLOR, width=1200, height=150, pady=30, padx=30)
+            self, bg=BACKGROUND_COLOR, width=1200, height=150, pady=30, padx=30
+        )
         bottom_frame = Frame(
-            self, bg=BACKGROUND_COLOR, width=600, height=50, pady=3)
+            self, bg=BACKGROUND_COLOR, width=600, height=50, pady=3
+        )
 
         # layout all of the main containers
         self.grid_rowconfigure(1, weight=1)
@@ -57,7 +60,9 @@ class App(tk.Tk):
 
         peers_frame = Frame(self.notebook, bg=BACKGROUND_COLOR)
         pref_frame = Frame(self.notebook, bg=BACKGROUND_COLOR)
-        verification_frame = VerificationKeyFrame(self.notebook, self.controller)
+        verification_frame = VerificationKeyFrame(
+            self.notebook, self.controller
+        )
         descriptor_frame = DescriptorFrame(self.notebook, self.controller)
 
         self.notebook.add(peers_frame, text="Peers")

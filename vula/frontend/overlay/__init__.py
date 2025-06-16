@@ -1,4 +1,3 @@
-
 from .help_overlay import HelpOverlay
 from .peer_details_overlay import PeerDetailsOverlay
 from .popupMessage import PopupMessage

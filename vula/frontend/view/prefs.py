@@ -35,7 +35,6 @@ from builtins import _
 
 
 class Prefs(Frame):
-
     def __init__(self, frame: Frame, data: Controller) -> None:
         self.show_editable: bool = False
         self.prefs: PrefsData
@@ -61,7 +60,6 @@ class Prefs(Frame):
             highlightbackground=BACKGROUND_COLOR,
             highlightcolor=BACKGROUND_COLOR,
             highlightthickness=1,
-
         )
 
         self.bottom_frame = Frame(
@@ -118,15 +116,15 @@ class Prefs(Frame):
         )
         self.pref_content_frame.bind_all(
             "<MouseWheel>",
-            lambda e: self.pref_canvas.yview_scroll(-1 * (e.delta // 120), "units")
+            lambda e: self.pref_canvas.yview_scroll(
+                -1 * (e.delta // 120), "units"
+            ),
         )
         self.pref_content_frame.bind_all(
-            "<Button-4>",
-            lambda e: self.pref_canvas.yview_scroll(-1, "units")
+            "<Button-4>", lambda e: self.pref_canvas.yview_scroll(-1, "units")
         )
         self.pref_content_frame.bind_all(
-            "<Button-5>",
-            lambda e: self.pref_canvas.yview_scroll(1, "units")
+            "<Button-5>", lambda e: self.pref_canvas.yview_scroll(1, "units")
         )
         self.top_frame.pack(
             fill="both", expand=True, padx=(0, 50), pady=(50, 0), side="top"
@@ -460,6 +458,7 @@ class Prefs(Frame):
                     )
                     label.grid(row=counter, column=1, padx=1, pady=1, sticky=W)
                 counter += 1
+
 
 if __name__ == "__main__":
     import doctest
