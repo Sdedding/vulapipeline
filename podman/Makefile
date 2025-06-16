@@ -12,7 +12,8 @@ i := 1
 M := 1
 
 # distro to run, for targets that use one
-dist := bookworm
+DIST ?= bookworm
+dist ?= $(DIST)
 
 # distros to run, for targets that run multiple
 dists := bookworm noble plucky
@@ -337,6 +338,12 @@ deps-systemd-shell: .deps-$(dist)-stamp
 	podman exec -it vula-$(dist)-shell $(bin_sh)
 	podman stop vula-$(dist)-shell
 
+.PHONY: dist-constraints-%
+dist-constraints-%:
+	@if [ "$(DIST)" != "$*" ]; then \
+		echo "Error: DIST must be '$*' not $(DIST)" >&2; exit 1; \
+	fi
+
 .PHONY: start
 start: .started-$(dist)-stamp
 .started-$(dist)-stamp: $(installed_image_stamp)
@@ -482,7 +489,7 @@ format: .deps-$(dist)-stamp
 	podman run $(podman_args) --rm -it vula-deps-$(dist) $(bin_sh) -c "pipx run pipenv run black vula test podman"
 
 .PHONY: gotest
-gotest: start
+gotest: dist-constraints-plucky .deps-$(dist)-stamp start
 	podman run --rm -it \
 		--security-opt seccomp=unconfined \
 		-v $(shell readlink -f ../contrib/vula-go):/root/vula-go:z \
