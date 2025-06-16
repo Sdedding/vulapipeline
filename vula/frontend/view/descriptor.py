@@ -45,12 +45,13 @@ class DescriptorFrame(ttk.Notebook):
         ).pack()
 
         descriptors = {
-            ip: Descriptor(d)
+            ip: Descriptor.parse(d)
             for ip, d in json.loads(
                 self.controller.our_latest_descriptors()
             ).items()
 
         }
+        print(descriptors)
 
 
         for ip, desc in descriptors.items():
