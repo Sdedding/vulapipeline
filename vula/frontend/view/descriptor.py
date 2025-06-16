@@ -2,7 +2,7 @@
 
 import json
 from tkinter import Frame, ttk
-from tkinter.ttk import Frame
+
 
 from vula.frontend import DataProvider
 from vula.frontend.components import QRCodeLabel
@@ -45,17 +45,16 @@ class DescriptorFrame(ttk.Notebook):
         ).pack()
 
         descriptors = {
-            ip: Descriptor.parse(d)
+            ip: Descriptor(d)
             for ip, d in json.loads(
                 self.controller.our_latest_descriptors()
             ).items()
         }
 
         for ip, desc in descriptors.items():
-            ip = str(desc.ip)
             ttk.Label(
                 text_frame,
-                text=ip,
+                text= ip,
                 style="Vula.TLabel",
                 font=(FONT, FONT_SIZE_TEXT_XXL),
             ).pack()
