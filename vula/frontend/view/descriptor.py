@@ -45,7 +45,7 @@ class DescriptorFrame(ttk.Notebook):
         ).pack()
 
         descriptors = {
-            ip: Descriptor.parse(d)
+            ip: Descriptor(d)
             for ip, d in json.loads(
                 self.controller.our_latest_descriptors()
             ).items()
@@ -55,10 +55,9 @@ class DescriptorFrame(ttk.Notebook):
 
 
         for ip, desc in descriptors.items():
-            ip = str(desc.ip)
             ttk.Label(
                 text_frame,
-                text=ip,
+                text= ip,
                 style="Vula.TLabel",
                 font=(FONT, FONT_SIZE_TEXT_XXL),
             ).pack()
