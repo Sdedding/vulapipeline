@@ -33,7 +33,7 @@ class DescriptorFrame(ttk.Notebook):
         self.grid_rowconfigure(2, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        title_frame.grid(row=0, sticky="nw")
+        title_frame.grid(row=0, sticky="nsew")
         text_frame.grid(row=1, sticky="nw")
         qr_frame.grid(row=2, sticky="nsew")
 

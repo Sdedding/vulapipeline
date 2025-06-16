@@ -1,4 +1,5 @@
 import gettext
+_ = gettext.gettext
 import tkinter as tk
 from tkinter import (
     Button,
@@ -31,6 +32,7 @@ from vula.frontend.constants import (
 from ..style import configure_styles
 from vula.frontend.dataprovider import PrefsTypeKeys
 from vula.frontend.overlay import PopupMessage
+
 
 _ = gettext.gettext
 

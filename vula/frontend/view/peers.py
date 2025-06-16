@@ -1,4 +1,6 @@
 import gettext
+import gettext
+_ = gettext.gettext
 import math
 from tkinter import Button, Canvas, Frame, Label, PhotoImage, ttk
 from typing import List, Any
