@@ -152,7 +152,7 @@ class Peers(Frame):
                 fg=TEXT_COLOR_WHITE,
                 font=(FONT, FONT_SIZE_TEXT_L),
             )
-            no_peers_label.grid(row=counter, column=0, sticky="w", pady=10)
+            no_peers_label.grid(row=counter, column=0, pady=10)
 
         # Get slice of array for current page
         # [0:5], [5, 10] etc.
