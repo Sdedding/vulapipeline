@@ -190,8 +190,8 @@ class Prefs(Frame):
         self.btn_edit.pack(side="right", padx=10, pady=10)
 
     def display_header(self) -> None:
-        self.title_frame = ttk.Frame(
-            self.frame, style="Vula.TFrame", padding=(10, 10)
+        self.title_frame = Frame(
+            self.frame, bg=BACKGROUND_COLOR, padx=30, width=400, height=40
         )
         title = Canvas(
             self.title_frame,

@@ -48,8 +48,8 @@ class Peers(Frame):
         self.update_loop()
 
     def display_header(self) -> None:
-        self.title_frame = ttk.Frame(
-            self.app, style="Vula.TFrame", padding=(10, 10)
+        self.title_frame = Frame(
+            self.app, bg=BACKGROUND_COLOR, width=400, height=40
         )
         title = Canvas(
             self.title_frame,
