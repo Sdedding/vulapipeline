@@ -35,7 +35,9 @@ class Peers(Frame):
     peer_page = 1
     peers_per_page = 5
 
-    def __init__(self, parent: Frame, data: vula.frontend.DataProvider) -> None:
+    def __init__(
+        self, parent: Frame, data: vula.frontend.DataProvider
+    ) -> None:
         Frame.__init__(self, parent)
         self.app = parent
         self.data = data

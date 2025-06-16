@@ -22,7 +22,9 @@ from ..style import configure_styles
 
 
 class PeerDetailsOverlay(tk.Toplevel):
-    def __init__(self, parent: tk.Frame, peer: PeerType, data: DataProvider) -> None:
+    def __init__(
+        self, parent: tk.Frame, peer: PeerType, data: DataProvider
+    ) -> None:
         tk.Toplevel.__init__(self, parent)
         self.app = parent
         self.peer = peer
@@ -375,7 +377,9 @@ class PeerDetailsOverlay(tk.Toplevel):
             image=self.button_image_copy_wg_pubkey,
             borderwidth=0,
             highlightthickness=0,
-            command=lambda: self.add_to_clipbaord(self.peer["wg_pubkey"] or ""),
+            command=lambda: self.add_to_clipbaord(
+                self.peer["wg_pubkey"] or ""
+            ),
             relief="sunken",
             background=BACKGROUND_COLOR,
             activebackground=BACKGROUND_COLOR,

@@ -61,9 +61,7 @@ class App(tk.Tk):
 
         peers_frame = Frame(self.notebook, bg=BACKGROUND_COLOR)
         pref_frame = Frame(self.notebook, bg=BACKGROUND_COLOR)
-        verification_frame = VerificationKeyFrame(
-            self.notebook, self.data
-        )
+        verification_frame = VerificationKeyFrame(self.notebook, self.data)
         descriptor_frame = DescriptorFrame(self.notebook, self.data)
 
         self.notebook.add(peers_frame, text="Peers")
