@@ -51,11 +51,13 @@ class VerificationKeyFrame(Frame):
             ).items()
         }
 
+        text_frame.grid_columnconfigure(0, weight=1)
         self.button_image = PhotoImage(file=IMAGE_BASE_PATH + "clipboard.png")
 
         for desc in descriptors.values():
             vk = str(desc.vk)
             ttk.Label(
+                text_frame,
                 text=vk,
                 style="Vula.TLabel",
                 font=(FONT, FONT_SIZE_TEXT_L),
