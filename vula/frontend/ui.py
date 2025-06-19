@@ -1,6 +1,6 @@
 import gettext
 import tkinter as tk
-from tkinter import Button, Canvas, Frame, PhotoImage, ttk
+from tkinter import Button, Frame, PhotoImage, ttk
 from typing import Any
 
 from vula import common

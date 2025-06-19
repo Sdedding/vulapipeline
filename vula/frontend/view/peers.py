@@ -1,11 +1,10 @@
 import gettext
-import gettext
-_ = gettext.gettext
 import math
-from tkinter import Button, Canvas, Frame, Label, PhotoImage, ttk
+import vula.frontend
+from tkinter import Button, Canvas, Frame, Label, PhotoImage
 from typing import List, Any
 
-import vula.frontend
+
 from vula.frontend.constants import (
     BACKGROUND_COLOR,
     BACKGROUND_COLOR_CARD,

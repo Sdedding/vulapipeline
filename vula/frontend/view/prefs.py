@@ -1,5 +1,4 @@
 import gettext
-_ = gettext.gettext
 import tkinter as tk
 from tkinter import (
     Button,
