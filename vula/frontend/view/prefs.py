@@ -11,7 +11,6 @@ from tkinter import (
     ttk,
 )
 from tkinter.constants import W
-from typing import cast
 
 from vula.frontend import DataProvider, PrefsType
 from vula.frontend.constants import (
@@ -29,7 +28,6 @@ from vula.frontend.constants import (
     TEXT_COLOR_WHITE,
 )
 from ..style import configure_styles
-from vula.frontend.dataprovider import PrefsTypeKeys
 from vula.frontend.overlay import PopupMessage
 
 
