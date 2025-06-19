@@ -1,6 +1,7 @@
 import gettext
 import json
 import tkinter as tk
+from tkinter import ttk
 
 from vula.frontend import DataProvider
 from vula.frontend.components import QRCodeLabel
@@ -43,8 +44,8 @@ class DescriptorOverlay(tk.Toplevel):
         text_frame = tk.Frame(
             newWindow, bg=BACKGROUND_COLOR, width=510, height=50, padx=20
         )
-        qr_frame = tk.Frame(
-            newWindow, bg=BACKGROUND_COLOR, width=510, height=410
+        qr_frame = ttk.Frame(
+            newWindow, width=510, height=410
         )
 
         # Create the grid for the root TK

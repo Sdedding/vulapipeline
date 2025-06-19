@@ -1,6 +1,7 @@
 import gettext
 import json
 import tkinter as tk
+from tkinter import ttk
 
 from vula.frontend import DataProvider
 from vula.frontend.components import QRCodeLabel
@@ -45,7 +46,7 @@ class VerificationKeyOverlay(tk.Toplevel):
         text_frame = tk.Frame(
             self, bg=BACKGROUND_COLOR, width=510, height=50, padx=20
         )
-        qr_frame = tk.Frame(self, bg=BACKGROUND_COLOR, width=510, height=390)
+        qr_frame = ttk.Frame(self, width=510, height=390)
 
         # Create the grid for the root TK
         self.grid_rowconfigure(2, weight=1)

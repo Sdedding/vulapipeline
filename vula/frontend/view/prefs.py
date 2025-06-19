@@ -248,10 +248,10 @@ class Prefs(Frame):
             widget_type = self.widgets[pref]
             if isinstance(widget_type, (Text, Button)):
                 widget = widget_type
-                if isinstance(values, list):
+                if isinstance(values, list)and isinstance(widget, Text):
                     current_list = widget.get("1.0", "end").split()
                     for value in current_list:
-                        if value not in prefs_dict[_pref]:
+                        if value not in values:
                             res = self.data.add_pref(pref, value)
                             if self.show_error(res) == 1:
                                 return
@@ -262,13 +262,13 @@ class Prefs(Frame):
                                 return
 
                 # boolean based prefs
-                elif isinstance(values, bool):
+                elif isinstance(values, bool) and isinstance(widget, Button):
                     bool_value = str(self.widgets[pref]["text"])
                     res = self.data.set_pref(pref, bool_value)
                     if self.show_error(res) == 1:
                         return
                 # int based prefs
-                elif isinstance(values, int):
+                elif isinstance(values, int) and isinstance(widget, Text):
                     int_value = str(widget.get("1.0", "end"))
                     res = self.data.set_pref(pref, int_value)
                     if self.show_error(res) == 1:
