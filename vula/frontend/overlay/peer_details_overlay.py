@@ -16,12 +16,12 @@ from vula.frontend.constants import (
     TEXT_COLOR_ORANGE,
     TEXT_COLOR_WHITE,
 )
-
 from .popupMessage import PopupMessage
 
-_ = gettext.gettext
 
 from ..style import configure_styles
+
+_ = gettext.gettext
 
 
 class PeerDetailsOverlay(tk.Toplevel):

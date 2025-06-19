@@ -1,7 +1,7 @@
 """Frame for displaying our descriptor QR codes."""
 
 import json
-from tkinter import Frame, ttk
+from tkinter import ttk
 
 
 from vula.frontend import DataProvider
@@ -21,6 +21,7 @@ class DescriptorFrame(ttk.Notebook):
 
     def __init__(self, parent: ttk.Notebook, controller: DataProvider) -> None:
         super().__init__(parent)
+
         self.style = configure_styles()
         self.controller = controller
         self._build_ui()
@@ -49,15 +50,13 @@ class DescriptorFrame(ttk.Notebook):
             for ip, d in json.loads(
                 self.controller.our_latest_descriptors()
             ).items()
-
         }
-
 
         for ip, desc in descriptors.items():
             ip = str(desc.v4a)
             ttk.Label(
                 text_frame,
-                text= ip,
+                text=ip,
                 style="Vula.TLabel",
                 font=(FONT, FONT_SIZE_TEXT_XXL),
             ).pack()

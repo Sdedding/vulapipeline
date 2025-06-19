@@ -1,5 +1,5 @@
 import json
-from tkinter import Frame, PhotoImage, ttk
+from tkinter import PhotoImage, ttk
 from tkinter.ttk import Frame
 
 from vula.frontend import DataProvider
