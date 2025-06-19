@@ -248,7 +248,7 @@ class Prefs(Frame):
             widget_type = self.widgets[pref]
             if isinstance(widget_type, (Text, Button)):
                 widget = widget_type
-                if isinstance(values, list)and isinstance(widget, Text):
+                if isinstance(values, list) and isinstance(widget, Text):
                     current_list = widget.get("1.0", "end").split()
                     for value in current_list:
                         if value not in values:
