@@ -12,10 +12,11 @@ i := 1
 M := 1
 
 # distro to run, for targets that use one
-dist := bookworm
+DIST ?= bookworm
+dist ?= $(DIST)
 
 # distros to run, for targets that run multiple
-dists := bookworm noble 
+dists := bookworm noble plucky
 
 VERSION := $(shell cat ../vula/__version__.py |cut -f 2 -d'"')
 DEB_NAME := ../dist/python3-vula_$(VERSION)-1_all.deb
@@ -337,6 +338,12 @@ deps-systemd-shell: .deps-$(dist)-stamp
 	podman exec -it vula-$(dist)-shell $(bin_sh)
 	podman stop vula-$(dist)-shell
 
+.PHONY: dist-constraints-%
+dist-constraints-%:
+	@if [ "$(DIST)" != "$*" ]; then \
+		echo "Error: DIST must be '$*' not $(DIST)" >&2; exit 1; \
+	fi
+
 .PHONY: start
 start: .started-$(dist)-stamp
 .started-$(dist)-stamp: $(installed_image_stamp)
@@ -482,26 +489,21 @@ format: .deps-$(dist)-stamp
 	podman run $(podman_args) --rm -it vula-deps-$(dist) $(bin_sh) -c "pipx run pipenv run black vula test podman"
 
 .PHONY: gotest
-gotest: start
+gotest: dist-constraints-plucky .deps-$(dist)-stamp start
 	podman run --rm -it \
+		--security-opt seccomp=unconfined \
 		-v $(shell readlink -f ../contrib/vula-go):/root/vula-go:z \
 		--workdir /root/vula-go \
-		--uts=private golang:1.24.4 \
-		sh -c ' \
-			apt update && apt install -y clang && \
-			go install honnef.co/go/tools/cmd/staticcheck@latest && \
-			go install github.com/securego/gosec/v2/cmd/gosec@latest && \
-			go install golang.org/x/vuln/cmd/govulncheck@latest && \
-			go install github.com/kisielk/errcheck@latest && \
-			go install github.com/gordonklaus/ineffassign@latest && \
+		vula-deps-$(dist) \
+		$(bin_sh) -c '\
 			go test ./... && \
 			go test -race ./... && \
-			CC=clang go test -msan ./... && \
+			CGO_ENABLED=1 CC=clang go test -msan -ldflags='-linkmode=external' -buildmode=pie ./... && \
 			go test -asan ./... && \
 			staticcheck ./... && \
 			errcheck ./... && \
-			govulncheck ./... && \
-			gosec ./...'
+			gosec ./... && \
+			govulncheck -show verbose ./...'
 
 .PHONY: mypy
 mypy: .deps-$(dist)-stamp
