@@ -242,6 +242,8 @@ class Prefs(Frame):
     def save_prefs(self) -> None:
         prefs_dict = self.prefs
         for pref, values in prefs_dict.items():
+            if pref not in self.widgets:
+                continue
             widget_type = self.widgets[pref]
             if isinstance(widget_type, (Text, Button)):
                 widget = widget_type
