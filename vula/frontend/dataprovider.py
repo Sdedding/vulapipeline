@@ -137,7 +137,9 @@ class DataProvider:
 
     def get_status(self) -> Optional[StatusType]:
         # Fetch the data from the systemd dbus
-        systemd = pydbus.SystemBus().get("org.freedesktop.systemd1", "/org/freedesktop/systemd1")
+        systemd = pydbus.SystemBus().get(
+            "org.freedesktop.systemd1", "/org/freedesktop/systemd1"
+        )
 
         # Create an empty dict for the status
         status = StatusType(publish="", discover="", organize="")
