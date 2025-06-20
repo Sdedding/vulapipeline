@@ -137,7 +137,7 @@ class DataProvider:
 
     def get_status(self) -> Optional[StatusType]:
         # Fetch the data from the systemd dbus
-        systemd = pydbus.SystemBus().get(".systemd1", "/")
+        systemd = pydbus.SystemBus().get("org.freedesktop.systemd1", "/freedesktop/systemd1")
 
         # Create an empty dict for the status
         status = StatusType(publish="", discover="", organize="")
@@ -149,7 +149,7 @@ class DataProvider:
             unit_name = "vula-%s.service" % (name,)
             try:
                 unit = pydbus.SystemBus().get(
-                    ".systemd1", systemd.GetUnit(unit_name)
+                    "org.freedesktop.systemd1", systemd.GetUnit(unit_name)
                 )
                 status[name] = unit.ActiveState
             except Exception as ex:
