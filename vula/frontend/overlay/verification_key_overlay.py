@@ -66,7 +66,7 @@ class VerificationKeyOverlay(tk.Toplevel):
         ).pack()
 
         my_descriptors = {
-            ip: Descriptor(d)
+            ip: Descriptor.parse(d)
             for ip, d in json.loads(self.data.our_latest_descriptors()).items()
         }
 
