@@ -217,36 +217,38 @@ class Prefs(Frame):
 
     def save_prefs(self) -> None:
         for pref, values in self.prefs.items():
+            if pref not in self.widgets:
+                continue
+
             _pref: PrefsTypeKeys = cast(PrefsTypeKeys, pref)
-            widget_type = self.widgets[pref]
-            if isinstance(widget_type, Text):
-                widget = widget_type
-                if isinstance(values, list):
-                    current_list = widget.get("1.0", "end").split()
-                    for value in current_list:
-                        if isinstance(value, list):
-                            if value not in self.prefs[_pref]:
-                                res = self.data.add_pref(pref, value)
-                                if self.show_error(res) == 1:
-                                    return
-                    for value in values:
-                        if value not in current_list:
-                            res = self.data.remove_pref(pref, value)
+            widget = self.widgets[pref]
+
+            if isinstance(values, list) and isinstance(widget, Text):
+                current_list = widget.get("1.0", "end").split()
+                for value in current_list:
+                    if isinstance(value, list):
+                        if value not in self.prefs[_pref]:
+                            res = self.data.add_pref(pref, value)
                             if self.show_error(res) == 1:
                                 return
+                for value in values:
+                    if value not in current_list:
+                        res = self.data.remove_pref(pref, value)
+                        if self.show_error(res) == 1:
+                            return
 
-                # boolean based prefs
-                elif isinstance(values, bool):
-                    bool_value = str(self.widgets[pref]["text"])
-                    res = self.data.set_pref(pref, bool_value)
-                    if self.show_error(res) == 1:
-                        return
+            # boolean based prefs
+            elif isinstance(values, bool) and isinstance(widget, Button):
+                bool_value = widget.cget("text").strip()
+                res = self.data.set_pref(pref, bool_value)
+                if self.show_error(res) == 1:
+                    return
                 # int based prefs
-                elif isinstance(values, int):
-                    int_value = str(widget[pref].get("1.0", "end"))
-                    res = self.data.set_pref(pref, int_value)
-                    if self.show_error(res) == 1:
-                        return
+            elif isinstance(values, int) and isinstance(widget, Text):
+                int_value = widget.get("1.0", "end").strip()
+                res = self.data.set_pref(pref, int_value)
+                if self.show_error(res) == 1:
+                    return
 
         self.get_prefs()
         self.show_editable = False
