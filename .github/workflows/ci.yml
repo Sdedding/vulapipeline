@@ -36,7 +36,7 @@ jobs:
         run: |
           export CI=true
           PATH=$PATH:~/.local/bin
-          ./misc/install-ci-deps.sh
+          sudo ./misc/install-ci-deps.sh
           make mypy
 
   check_test:
@@ -53,7 +53,7 @@ jobs:
         run: |
           export CI=true
           PATH=$PATH:~/.local/bin
-          ./misc/install-ci-deps.sh
+          sudo ./misc/install-ci-deps.sh
           . $(pipenv --venv)/bin/activate
           make check
           xvfb-run -- pipenv run pytest -v
