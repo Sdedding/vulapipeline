@@ -776,13 +776,13 @@ class Organize(attrdict):
             reason = f"because {reason}"
         if old_state == new_system_state:
             self.log.info(
-                f"checked system state{reason}; no changes"
-            )  # noqa: E702
+                f"checked system state{reason}; no changes" # noqa: E702
+            )  
         else:
             self.log.info(
-                f"checked system state{reason}; found changes,"
+                f"checked system state{reason}; found changes,"  # noqa: E702, E231
                 " running sync/repair"
-            )  # noqa: E702, E231
+            ) 
             result = self.state.event_NEW_SYSTEM_STATE(new_system_state)
             if result is None or result.error:
                 raise Exception(
