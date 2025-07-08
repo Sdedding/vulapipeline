@@ -12,10 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
       - name: Install and use Nix
         run: |
           curl -L https://nixos.org/nix/install | sh
           . ~/.nix-profile/etc/profile.d/nix.sh
+          export NIX_CONFIG="extra-experimental-features = nix-command flakes"
           system=$(nix-instantiate --eval --expr "builtins.currentSystem")
           nix build --print-build-logs .#checks.${system}.treefmt
           nix build --print-build-logs .
@@ -24,10 +26,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
       - name: Install Python deps
         run: |
           sudo apt update
           sudo apt install -y python3-pip python3-venv
+
       - name: Setup CI and run mypy
         run: |
           export CI=true
@@ -39,10 +43,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Install test dependencies
+
+      - name: Install test deps
         run: |
           sudo apt update
-          sudo apt install -y xvfb
+          sudo apt install -y xvfb python3-pip python3-venv
+
       - name: Setup and run tests
         run: |
           export CI=true
@@ -61,11 +67,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Install Go tools
+
+      - name: Install Go toolchain deps
         run: |
           sudo apt update
           sudo apt install -y clang libclang-rt-19-dev
-      - name: Run Go tests
+
+      - name: Run Go tests and analysis
         run: |
           cd contrib/vula-go
           go install honnef.co/go/tools/cmd/staticcheck@latest
