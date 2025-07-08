@@ -27,16 +27,17 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install Python deps
+      - name: Install Python & Pipenv deps
         run: |
           sudo apt update
-          sudo apt install -y python3-pip python3-venv
+          sudo apt install -y python3-pip python3-venv pipx
+          sudo pipx ensurepath
 
       - name: Setup CI and run mypy
         run: |
           export CI=true
-          PATH=$PATH:~/.local/bin
-          sudo ./misc/install-ci-deps.sh
+          export PATH=$PATH:/opt/pipx_bin
+          ./misc/install-ci-deps.sh
           make mypy
 
   check_test:
@@ -47,13 +48,14 @@ jobs:
       - name: Install test deps
         run: |
           sudo apt update
-          sudo apt install -y xvfb python3-pip python3-venv
+          sudo apt install -y xvfb python3-pip python3-venv pipx
+          sudo pipx ensurepath
 
       - name: Setup and run tests
         run: |
           export CI=true
-          PATH=$PATH:~/.local/bin
-          sudo ./misc/install-ci-deps.sh
+          export PATH=$PATH:/opt/pipx_bin
+          ./misc/install-ci-deps.sh
           . $(pipenv --venv)/bin/activate
           make check
           xvfb-run -- pipenv run pytest -v
