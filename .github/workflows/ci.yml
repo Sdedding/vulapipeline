@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  create:
+    tags: ["*"]
+
+jobs:
+  nix:
+    runs-on: ubuntu-latest
+    container:
+      image: nixos/nix
+      options: --cap-add=SYS_ADMIN  # Required for some Nix use cases
+    env:
+      NIX_CONFIG: extra-experimental-features = nix-command flakes
+    steps:
+      - uses: actions/checkout@v3
+      - run: |
+          system=$(nix-instantiate --eval --expr "builtins.currentSystem")
+          nix build --print-build-logs .#checks.${system}.treefmt
+          nix build --print-build-logs .
+
+  mypy:
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.10-bookworm
+    steps:
+      - uses: actions/checkout@v3
+      - run: |
+          export CI=true
+          PATH=$PATH:~/.local/bin
+          ./misc/install-ci-deps.sh
+          make mypy
+
+  check_test:
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.10-bookworm
+    steps:
+      - uses: actions/checkout@v3
+      - uses: GabrielBB/xvfb-action@v1
+      - run: |
+          export CI=true
+          PATH=$PATH:~/.local/bin
+          ./misc/install-ci-deps.sh
+          . $(pipenv --venv)/bin/activate
+          make check
+          xvfb-run -- pipenv run pytest -v
+          xvfb-run -- pipenv run pytest --cov
+          make sast-analysis
+          make wheel
+          make deb
+          dpkg -I dist/*.deb
+
+  go_test:
+    runs-on: ubuntu-latest
+    container:
+      image: golang:1.24.4
+    steps:
+      - uses: actions/checkout@v3
+      - run: |
+          apt update && apt install -y clang libclang-rt-19-dev
+          cd contrib/vula-go
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install github.com/kisielk/errcheck@latest
+          go install github.com/gordonklaus/ineffassign@latest
+          go test ./...
+          go test -race ./...
+          CC=clang go test -msan ./...
+          go test -asan ./...
+          staticcheck ./...
+          errcheck ./...
+          govulncheck ./...
+          gosec ./...
