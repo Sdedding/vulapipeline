@@ -10,22 +10,21 @@ on:
 jobs:
   nix:
     runs-on: ubuntu-latest
-    container:
-      image: nixos/nix
-      options: --cap-add=SYS_ADMIN  # Required for some Nix use cases
-    env:
-      NIX_CONFIG: extra-experimental-features = nix-command flakes
     steps:
       - uses: actions/checkout@v3
-      - run: |
+      - name: Install Nix
+        run: |
+          curl -L https://nixos.org/nix/install | sh
+          . ~/.nix-profile/etc/profile.d/nix.sh
+          nix-shell -p nix-info --run "nix-info -m"
+      - name: Run Nix builds
+        run: |
           system=$(nix-instantiate --eval --expr "builtins.currentSystem")
           nix build --print-build-logs .#checks.${system}.treefmt
           nix build --print-build-logs .
 
   mypy:
     runs-on: ubuntu-latest
-    container:
-      image: python:3.10-bookworm
     steps:
       - uses: actions/checkout@v3
       - run: |
@@ -36,15 +35,19 @@ jobs:
 
   check_test:
     runs-on: ubuntu-latest
-    container:
-      image: python:3.10-bookworm
     steps:
       - uses: actions/checkout@v3
-      - uses: GabrielBB/xvfb-action@v1
-      - run: |
+      - name: Install Xvfb
+        run: |
+          sudo apt update
+          sudo apt install -y xvfb
+      - name: Install CI deps
+        run: |
           export CI=true
           PATH=$PATH:~/.local/bin
           ./misc/install-ci-deps.sh
+      - name: Run tests
+        run: |
           . $(pipenv --venv)/bin/activate
           make check
           xvfb-run -- pipenv run pytest -v
@@ -56,12 +59,14 @@ jobs:
 
   go_test:
     runs-on: ubuntu-latest
-    container:
-      image: golang:1.24.4
     steps:
       - uses: actions/checkout@v3
-      - run: |
-          apt update && apt install -y clang libclang-rt-19-dev
+      - name: Install Go tools
+        run: |
+          sudo apt update
+          sudo apt install -y clang libclang-rt-19-dev
+      - name: Run Go tests
+        run: |
           cd contrib/vula-go
           go install honnef.co/go/tools/cmd/staticcheck@latest
           go install github.com/securego/gosec/v2/cmd/gosec@latest
