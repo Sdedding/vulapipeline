@@ -1,4 +1,28 @@
-mypy:
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  create:
+    tags: ["*"]
+
+jobs:
+  nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install and use Nix
+        run: |
+          curl -L https://nixos.org/nix/install | sh
+          . ~/.nix-profile/etc/profile.d/nix.sh
+          export NIX_CONFIG="extra-experimental-features = nix-command flakes"
+          system=$(nix-instantiate --eval --expr "builtins.currentSystem")
+          nix build --print-build-logs .#checks.${system}.treefmt
+          nix build --print-build-logs .
+
+  mypy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -40,3 +64,30 @@ mypy:
           make wheel
           make deb
           dpkg -I dist/*.deb
+
+  go_test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Go toolchain deps
+        run: |
+          sudo apt update
+          sudo apt install -y clang libclang-rt-19-dev
+
+      - name: Run Go tests and analysis
+        run: |
+          cd contrib/vula-go
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install github.com/kisielk/errcheck@latest
+          go install github.com/gordonklaus/ineffassign@latest
+          go test ./...
+          go test -race ./...
+          CC=clang go test -msan ./...
+          go test -asan ./...
+          staticcheck ./...
+          errcheck ./...
+          govulncheck ./...
+          gosec ./...
