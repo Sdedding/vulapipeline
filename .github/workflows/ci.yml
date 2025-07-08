@@ -37,7 +37,7 @@ jobs:
       - name: Setup CI and run mypy
         run: |
           export CI=true
-          sudo ./misc/install-ci-deps.sh
+          sudo -E ./misc/install-ci-deps.sh
           make mypy
 
   check_test:
@@ -55,7 +55,7 @@ jobs:
       - name: Setup and run tests
         run: |
           export CI=true
-          sudo ./misc/install-ci-deps.sh
+          sudo -E ./misc/install-ci-deps.sh
           . $(pipenv --venv)/bin/activate
           make check
           xvfb-run -- pipenv run pytest -v
