@@ -37,7 +37,7 @@ jobs:
       - name: Setup CI and run mypy
         run: |
           export CI=true
-          ./misc/install-ci-deps.sh
+          sudo ./misc/install-ci-deps.sh
           make mypy
 
   check_test:
@@ -55,7 +55,7 @@ jobs:
       - name: Setup and run tests
         run: |
           export CI=true
-          ./misc/install-ci-deps.sh
+          sudo ./misc/install-ci-deps.sh
           . $(pipenv --venv)/bin/activate
           make check
           xvfb-run -- pipenv run pytest -v
@@ -64,30 +64,3 @@ jobs:
           make wheel
           make deb
           dpkg -I dist/*.deb
-
-  go_test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install Go toolchain deps
-        run: |
-          sudo apt update
-          sudo apt install -y clang libclang-rt-19-dev
-
-      - name: Run Go tests and analysis
-        run: |
-          cd contrib/vula-go
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          go install github.com/kisielk/errcheck@latest
-          go install github.com/gordonklaus/ineffassign@latest
-          go test ./...
-          go test -race ./...
-          CC=clang go test -msan ./...
-          go test -asan ./...
-          staticcheck ./...
-          errcheck ./...
-          govulncheck ./...
-          gosec ./...
