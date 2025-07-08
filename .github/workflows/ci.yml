@@ -12,13 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Install Nix
+      - name: Install and use Nix
         run: |
           curl -L https://nixos.org/nix/install | sh
           . ~/.nix-profile/etc/profile.d/nix.sh
-          nix-shell -p nix-info --run "nix-info -m"
-      - name: Run Nix builds
-        run: |
           system=$(nix-instantiate --eval --expr "builtins.currentSystem")
           nix build --print-build-logs .#checks.${system}.treefmt
           nix build --print-build-logs .
@@ -27,7 +24,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: |
+      - name: Install Python deps
+        run: |
+          sudo apt update
+          sudo apt install -y python3-pip python3-venv
+      - name: Setup CI and run mypy
+        run: |
           export CI=true
           PATH=$PATH:~/.local/bin
           ./misc/install-ci-deps.sh
@@ -37,17 +39,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Install Xvfb
+      - name: Install test dependencies
         run: |
           sudo apt update
           sudo apt install -y xvfb
-      - name: Install CI deps
+      - name: Setup and run tests
         run: |
           export CI=true
           PATH=$PATH:~/.local/bin
           ./misc/install-ci-deps.sh
-      - name: Run tests
-        run: |
           . $(pipenv --venv)/bin/activate
           make check
           xvfb-run -- pipenv run pytest -v
